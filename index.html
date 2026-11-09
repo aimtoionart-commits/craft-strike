@@ -1576,6 +1576,17 @@
             }
 
             ctx.restore();
+        }
+
+        // Полоски здоровья, имена и патроны рисуем отдельным проходом,
+        // чтобы они не прятались за телами соседних бойцов
+        function drawFighterOverlay(f) {
+            if (!f.alive) return;
+
+            const r = f.r;
+            const ax = Math.cos(f.aim);
+            const ay = Math.sin(f.aim);
+            const teamColor = f.team === 'blue' ? '#29B6F6' : '#EF5350';
 
             // Полоска здоровья
             const bw = 46;
@@ -1776,6 +1787,7 @@
             drawMuzzle();
             drawParticles();
             drawFloaters();
+            for (const f of game.fighters) drawFighterOverlay(f);
 
             if (vignette) {
                 ctx.fillStyle = vignette;
