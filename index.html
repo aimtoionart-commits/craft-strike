@@ -35,6 +35,41 @@
         .w-btn.active {
             border-color: #FFEB3B; background: rgba(255, 235, 59, 0.2); color: #FFEB3B;
         }
+
+        /* Виртуальный джойстик */
+        #joystick {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.35);
+            z-index: 30;
+            touch-action: none;
+        }
+        #joystick.active {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.55);
+        }
+        #joystick-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 60px;
+            height: 60px;
+            margin: -30px 0 0 -30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.28);
+            border: 2px solid rgba(255, 255, 255, 0.55);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+        }
+        #joystick.active #joystick-knob {
+            background: rgba(255, 255, 255, 0.45);
+        }
     </style>
 </head>
 <body>
@@ -47,6 +82,10 @@
         <button class="w-btn active" onclick="setWeapon('pistol', this)">🔫 Пистолет</button>
         <button class="w-btn" onclick="setWeapon('shotgun', this)">💥 Дробовик</button>
         <button class="w-btn" onclick="setWeapon('rifle', this)">⚡ Автомат</button>
+    </div>
+
+    <div id="joystick">
+        <div id="joystick-knob"></div>
     </div>
 
     <canvas id="game"></canvas>
@@ -107,40 +146,60 @@
             { x: canvas.width * 0.7, y: canvas.height * 0.7, w: 80, h: 80 }
         ];
 
-        let joystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
+        const joystick = { active: false, moveX: 0, moveY: 0 };
+        const joystickEl = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystick-knob');
         const bullets = [];
         const enemies = [];
         const drops = []; // Массив выпавших предметов
         let lastShoot = 0;
 
-        // Обработка касаний
-        window.addEventListener('touchstart', (e) => {
-            if (e.target.closest('#weapons')) return;
-            const touch = e.touches[0];
-            joystick.active = true;
-            joystick.startX = touch.clientX;
-            joystick.startY = touch.clientY;
-            joystick.moveX = 0; joystick.moveY = 0;
-        });
+        // Управление виртуальным джойстиком (мышь и касания)
+        function joystickMaxDist() {
+            return joystickEl.clientWidth / 2 - joystickKnob.offsetWidth / 2;
+        }
 
-        window.addEventListener('touchmove', (e) => {
-            if (!joystick.active) return;
-            const touch = e.touches[0];
-            const dx = touch.clientX - joystick.startX;
-            const dy = touch.clientY - joystick.startY;
+        function moveJoystick(clientX, clientY) {
+            const rect = joystickEl.getBoundingClientRect();
+            const dx = clientX - (rect.left + rect.width / 2);
+            const dy = clientY - (rect.top + rect.height / 2);
+            const maxDist = joystickMaxDist();
             const dist = Math.hypot(dx, dy);
-            const maxDist = 50;
+            const scale = dist > maxDist ? maxDist / dist : 1;
+            const offsetX = dx * scale;
+            const offsetY = dy * scale;
 
-            if (dist > 0) {
-                joystick.moveX = (dx / dist) * Math.min(dist, maxDist) / maxDist;
-                joystick.moveY = (dy / dist) * Math.min(dist, maxDist) / maxDist;
-            }
-        });
+            joystick.moveX = offsetX / maxDist;
+            joystick.moveY = offsetY / maxDist;
+            joystickKnob.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+        }
 
-        window.addEventListener('touchend', () => {
+        function resetJoystick() {
             joystick.active = false;
-            joystick.moveX = 0; joystick.moveY = 0;
+            joystick.moveX = 0;
+            joystick.moveY = 0;
+            joystickEl.classList.remove('active');
+            joystickKnob.style.transform = 'translate(0px, 0px)';
+        }
+
+        joystickEl.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            joystick.active = true;
+            joystickEl.classList.add('active');
+            joystickEl.setPointerCapture(e.pointerId);
+            moveJoystick(e.clientX, e.clientY);
         });
+
+        joystickEl.addEventListener('pointermove', (e) => {
+            if (!joystick.active) return;
+            e.preventDefault();
+            moveJoystick(e.clientX, e.clientY);
+        });
+
+        joystickEl.addEventListener('pointerup', resetJoystick);
+        joystickEl.addEventListener('pointercancel', resetJoystick);
+        joystickEl.addEventListener('lostpointercapture', resetJoystick);
+        window.addEventListener('blur', resetJoystick);
 
         function checkBlockCollision(nx, ny, size) {
             for (let b of blocks) {
