@@ -38,14 +38,14 @@
 
         /* ---------- Подсказка ---------- */
         #hint {
-            position: fixed; left: 50%; top: calc(58px + var(--safe-top)); transform: translateX(-50%);
-            max-width: 320px; padding: 7px 14px; border-radius: 12px; text-align: center;
-            background: rgba(10, 16, 24, 0.7); color: #cfe3ff; font-size: 12px; line-height: 1.35;
+            position: fixed; left: 50%; top: calc(56px + var(--safe-top)); transform: translateX(-50%);
+            max-width: 300px; padding: 6px 12px; border-radius: 10px; text-align: center;
+            background: rgba(10, 16, 24, 0.62); color: #cfe3ff; font-size: 11px; line-height: 1.35;
             opacity: 0; pointer-events: none; z-index: 16;
         }
-        #hint.show { animation: hintFade 6s ease forwards; }
+        #hint.show { animation: hintFade 5s ease forwards; }
         @keyframes hintFade {
-            0% { opacity: 0; } 8% { opacity: 1; } 78% { opacity: 1; } 100% { opacity: 0; }
+            0% { opacity: 0; } 8% { opacity: 1; } 75% { opacity: 1; } 100% { opacity: 0; }
         }
 
         /* ---------- Джойстики ---------- */
@@ -238,17 +238,17 @@
 
         const BRAWLERS = [
             {
-                id: 'scout', name: 'Скаут', icon: '🔫', color: '#4FC3F7', colorDark: '#0277BD',
+                id: 'scout', name: 'Скаут', icon: '🔫', color: '#FFD15C', colorDark: '#C77800', colorLight: '#FFF0C2',
                 hp: 3600, speed: 200,
                 weapon: { damage: 430, pellets: 1, spread: 0.05, bulletSpeed: 760, cooldown: 380, reload: 1.5, ammo: 3, range: 560 }
             },
             {
-                id: 'tank', name: 'Танк', icon: '💥', color: '#FFB74D', colorDark: '#E65100',
+                id: 'tank', name: 'Танк', icon: '💥', color: '#BA68C8', colorDark: '#6A1B9A', colorLight: '#E1BEE7',
                 hp: 5200, speed: 180,
                 weapon: { damage: 230, pellets: 5, spread: 0.34, bulletSpeed: 660, cooldown: 620, reload: 1.9, ammo: 3, range: 380 }
             },
             {
-                id: 'sniper', name: 'Снайпер', icon: '⚡', color: '#81C784', colorDark: '#2E7D32',
+                id: 'sniper', name: 'Снайпер', icon: '⚡', color: '#81C784', colorDark: '#2E7D32', colorLight: '#C8E6C9',
                 hp: 3000, speed: 205,
                 weapon: { damage: 900, pellets: 1, spread: 0.015, bulletSpeed: 1050, cooldown: 750, reload: 1.8, ammo: 3, range: 780 }
             }
@@ -284,6 +284,7 @@
             bullets: [],
             particles: [],
             floaters: [],
+            muzzle: [],
             player: null
         };
 
@@ -379,20 +380,79 @@
             });
         }
 
+        // Детерминированный генератор — трава выглядит одинаково при каждом запуске
+        function mulberry32(seed) {
+            return function () {
+                seed |= 0;
+                seed = (seed + 0x6D2B79F5) | 0;
+                let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function pathRoundRect(x, y, w, h, r) {
+            const rr = Math.min(r, w / 2, h / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + rr, y);
+            ctx.lineTo(x + w - rr, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+            ctx.lineTo(x + w, y + h - rr);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+            ctx.lineTo(x + rr, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+            ctx.lineTo(x, y + rr);
+            ctx.quadraticCurveTo(x, y, x + rr, y);
+            ctx.closePath();
+        }
+
         function buildGround() {
+            const size = 220;
             const tile = document.createElement('canvas');
-            tile.width = 96;
-            tile.height = 96;
+            tile.width = size;
+            tile.height = size;
             const g = tile.getContext('2d');
-            g.fillStyle = '#2E6B3E';
-            g.fillRect(0, 0, 96, 96);
-            g.fillStyle = 'rgba(0, 0, 0, 0.055)';
-            g.fillRect(0, 0, 48, 48);
-            g.fillRect(48, 48, 48, 48);
-            g.fillStyle = 'rgba(255, 255, 255, 0.05)';
-            for (let y = 12; y < 96; y += 24) {
-                for (let x = 12; x < 96; x += 24) g.fillRect(x, y, 3, 3);
+            const rnd = mulberry32(20261109);
+
+            // Базовая трава
+            g.fillStyle = '#2F6A3C';
+            g.fillRect(0, 0, size, size);
+
+            // Мягкие пятна земли и мха (очень прозрачные, чтобы не рябили)
+            for (let i = 0; i < 8; i++) {
+                const x = 30 + rnd() * (size - 60);
+                const y = 30 + rnd() * (size - 60);
+                const rx = 18 + rnd() * 30;
+                const ry = 12 + rnd() * 20;
+                g.beginPath();
+                g.ellipse(x, y, rx, ry, rnd() * Math.PI, 0, Math.PI * 2);
+                g.fillStyle = i % 2 === 0 ? 'rgba(20, 62, 32, 0.08)' : 'rgba(140, 185, 105, 0.05)';
+                g.fill();
             }
+
+            // Травинки
+            for (let i = 0; i < 60; i++) {
+                const x = 8 + rnd() * (size - 16);
+                const y = 8 + rnd() * (size - 16);
+                const h = 3 + rnd() * 5;
+                g.strokeStyle = rnd() < 0.5 ? 'rgba(139, 195, 118, 0.35)' : 'rgba(30, 80, 45, 0.30)';
+                g.lineWidth = 1.2;
+                g.beginPath();
+                g.moveTo(x, y);
+                g.quadraticCurveTo(x + 1.5, y - h * 0.6, x + (rnd() - 0.5) * 3, y - h);
+                g.stroke();
+            }
+
+            // Камешки
+            for (let i = 0; i < 7; i++) {
+                const x = 10 + rnd() * (size - 20);
+                const y = 10 + rnd() * (size - 20);
+                g.beginPath();
+                g.ellipse(x, y, 1.6 + rnd() * 1.8, 1.2 + rnd(), rnd() * Math.PI, 0, Math.PI * 2);
+                g.fillStyle = 'rgba(210, 220, 205, 0.13)';
+                g.fill();
+            }
+
             groundPattern = ctx.createPattern(tile, 'repeat');
         }
 
@@ -586,6 +646,7 @@
                 maxHp: brawler.hp,
                 color: brawler.color,
                 colorDark: brawler.colorDark,
+                colorLight: brawler.colorLight,
                 weapon: brawler.weapon,
                 aim: team === 'blue' ? -Math.PI / 2 : Math.PI / 2,
                 ammo: brawler.weapon.ammo,
@@ -600,6 +661,8 @@
                 kills: 0,
                 deaths: 0,
                 damageDealt: 0,
+                walkPhase: Math.random() * Math.PI * 2,
+                moving: false,
                 ai: {
                     strafeDir: Math.random() < 0.5 ? -1 : 1,
                     strafeTimer: 1 + Math.random(),
@@ -612,17 +675,17 @@
         }
 
         function spawnPoints() {
-            const mx = Math.min(W * 0.13, 84);
+            const mx = Math.min(W * 0.26, 118);
             return {
                 blue: [
-                    { x: W / 2, y: H * 0.66 },
-                    { x: W / 2 - mx, y: H * 0.72 },
-                    { x: W / 2 + mx, y: H * 0.72 }
+                    { x: W / 2, y: H * 0.64 },
+                    { x: W / 2 - mx, y: H * 0.76 },
+                    { x: W / 2 + mx, y: H * 0.76 }
                 ],
                 red: [
-                    { x: W / 2, y: H * 0.34 },
-                    { x: W / 2 - mx, y: H * 0.28 },
-                    { x: W / 2 + mx, y: H * 0.28 }
+                    { x: W / 2, y: H * 0.36 },
+                    { x: W / 2 - mx, y: H * 0.24 },
+                    { x: W / 2 + mx, y: H * 0.24 }
                 ]
             };
         }
@@ -741,7 +804,10 @@
                 });
             }
 
-            burst(f.x + Math.cos(angle) * (f.r + 10), f.y + Math.sin(angle) * (f.r + 10), '#FFF3C4', 3);
+            const muzzleX = f.x + Math.cos(angle) * (f.r + 12);
+            const muzzleY = f.y + Math.sin(angle) * (f.r + 12);
+            game.muzzle.push({ x: muzzleX, y: muzzleY, angle: angle, color: f.color, life: 0.08, maxLife: 0.08, superShot: false });
+            burst(muzzleX, muzzleY, '#FFF3C4', 3);
         }
 
         function addSuperCharge(f, amount) {
@@ -784,6 +850,11 @@
                 });
             }
 
+            game.muzzle.push({
+                x: f.x + Math.cos(angle) * (f.r + 14),
+                y: f.y + Math.sin(angle) * (f.r + 14),
+                angle: angle, color: '#FFD54F', life: 0.14, maxLife: 0.14, superShot: true
+            });
             burst(f.x + Math.cos(angle) * f.r, f.y + Math.sin(angle) * f.r, '#FFD54F', 16);
             if (f.isPlayer) haptic('medium');
         }
@@ -959,6 +1030,9 @@
             f.x = clamp(f.x, f.r + 4, W - f.r - 4);
             f.y = clamp(f.y, f.r + 4, H - f.r - 4);
 
+            f.moving = len > 0.001;
+            if (f.moving) f.walkPhase += dt * 9;
+
             // Прицел и огонь игрока
             if (f.isPlayer) {
                 f.aim = aimAngleForPlayer(f);
@@ -1046,6 +1120,12 @@
                 fl.y -= 26 * dt;
             }
 
+            for (let i = game.muzzle.length - 1; i >= 0; i--) {
+                const m = game.muzzle[i];
+                m.life -= dt;
+                if (m.life <= 0) game.muzzle.splice(i, 1);
+            }
+
             if (game.mode === 'playing') updateHud();
         }
 
@@ -1072,48 +1152,113 @@
            ============================================================== */
         function drawWalls() {
             for (const w of walls) {
+                // Тень
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
-                ctx.fillRect(w.x + 5, w.y + 7, w.w, w.h);
+                pathRoundRect(w.x + 4, w.y + 7, w.w, w.h, 7);
+                ctx.fill();
 
-                ctx.fillStyle = '#8D6E63';
-                ctx.fillRect(w.x, w.y, w.w, w.h);
+                // Корпус ящика
+                const wood = ctx.createLinearGradient(w.x, w.y, w.x, w.y + w.h);
+                wood.addColorStop(0, '#A9714C');
+                wood.addColorStop(0.55, '#8A5A3B');
+                wood.addColorStop(1, '#71452B');
+                ctx.fillStyle = wood;
+                pathRoundRect(w.x, w.y, w.w, w.h, 7);
+                ctx.fill();
 
-                ctx.fillStyle = '#6D4C41';
-                ctx.fillRect(w.x, w.y, w.w, 6);
-                ctx.fillRect(w.x, w.y + w.h - 6, w.w, 6);
+                // Верхняя светлая фаска
+                ctx.fillStyle = 'rgba(255, 233, 196, 0.22)';
+                ctx.fillRect(w.x + 6, w.y + 4, w.w - 12, Math.max(3, w.h * 0.14));
 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-                ctx.fillRect(w.x, w.y, 6, w.h);
-
-                ctx.strokeStyle = '#4E342E';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(w.x + 1, w.y + 1, w.w - 2, w.h - 2);
-
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.16)';
-                ctx.lineWidth = 1;
-                for (let x = w.x + 18; x < w.x + w.w - 6; x += 18) {
+                // Доски
+                ctx.strokeStyle = 'rgba(56, 32, 18, 0.32)';
+                ctx.lineWidth = 1.5;
+                for (let x = w.x + 24; x < w.x + w.w - 6; x += 24) {
                     ctx.beginPath();
-                    ctx.moveTo(x, w.y + 6);
-                    ctx.lineTo(x, w.y + w.h - 6);
+                    ctx.moveTo(x, w.y + 7);
+                    ctx.lineTo(x, w.y + w.h - 7);
                     ctx.stroke();
                 }
+
+                // Поперечные планки
+                ctx.fillStyle = 'rgba(74, 43, 25, 0.35)';
+                ctx.fillRect(w.x + 5, w.y + w.h * 0.5 - 2, w.w - 10, 4);
+
+                // Металлические уголки
+                ctx.fillStyle = '#4A555F';
+                const c = 8;
+                ctx.fillRect(w.x + 3, w.y + 3, c, 3);
+                ctx.fillRect(w.x + 3, w.y + 3, 3, c);
+                ctx.fillRect(w.x + w.w - c - 3, w.y + 3, c, 3);
+                ctx.fillRect(w.x + w.w - 6, w.y + 3, 3, c);
+                ctx.fillRect(w.x + 3, w.y + w.h - 6, c, 3);
+                ctx.fillRect(w.x + 3, w.y + w.h - c - 3, 3, c);
+                ctx.fillRect(w.x + w.w - c - 3, w.y + w.h - 6, c, 3);
+                ctx.fillRect(w.x + w.w - 6, w.y + w.h - c - 3, 3, c);
+
+                // Контур
+                ctx.strokeStyle = 'rgba(48, 27, 14, 0.8)';
+                ctx.lineWidth = 2;
+                pathRoundRect(w.x + 1, w.y + 1, w.w - 2, w.h - 2, 6);
+                ctx.stroke();
             }
+        }
+
+        function drawWeapon(f, r) {
+            const id = f.brawler.id;
+            ctx.lineJoin = 'round';
+
+            if (id === 'sniper') {
+                ctx.fillStyle = '#5D4037';
+                ctx.fillRect(-r * 0.15, -3.5, r * 0.7, 7);
+                ctx.fillStyle = '#455A64';
+                ctx.fillRect(r * 0.35, -2.5, r * 1.6, 5);
+                ctx.fillStyle = '#263238';
+                ctx.fillRect(r * 0.45, -7, r * 0.55, 4);
+                ctx.fillStyle = '#90CAF9';
+                ctx.fillRect(r * 0.62, -6.4, 4, 3);
+            } else if (id === 'tank') {
+                ctx.fillStyle = '#5D4037';
+                ctx.fillRect(-r * 0.2, -7, r * 0.75, 14);
+                ctx.fillStyle = '#455A64';
+                ctx.fillRect(r * 0.4, -7.5, r * 1.05, 5);
+                ctx.fillRect(r * 0.4, 2.5, r * 1.05, 5);
+                ctx.fillStyle = '#263238';
+                ctx.fillRect(r * 1.38, -7.5, 5, 5);
+                ctx.fillRect(r * 1.38, 2.5, 5, 5);
+            } else {
+                ctx.fillStyle = '#37474F';
+                ctx.fillRect(r * 0.3, -4.5, r * 1.05, 9);
+                ctx.fillStyle = '#546E7A';
+                ctx.fillRect(r * 0.3, -4.5, r * 0.45, 9);
+                ctx.fillStyle = '#212B33';
+                ctx.fillRect(r * 1.3, -2.5, 5, 5);
+            }
+
+            // Перчатки
+            ctx.fillStyle = '#1f2a35';
+            ctx.beginPath();
+            ctx.arc(r * 0.55, 6, 3.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(r * 0.42, -6.5, 3.2, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         function drawFighter(f) {
             if (!f.alive) {
                 const left = Math.max(0, (f.respawnAt - game.now) / 1000);
                 ctx.save();
-                ctx.globalAlpha = 0.6;
+                ctx.globalAlpha = 0.65;
+                ctx.setLineDash([5, 5]);
                 ctx.strokeStyle = f.team === 'blue' ? '#29B6F6' : '#EF5350';
                 ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
                 ctx.beginPath();
-                ctx.arc(f.spawnX, f.spawnY, f.r + 8, 0, Math.PI * 2);
+                ctx.arc(f.spawnX, f.spawnY, f.r + 10, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.setLineDash([]);
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 14px sans-serif';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.font = 'bold 15px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(String(Math.ceil(left)), f.spawnX, f.spawnY);
@@ -1122,80 +1267,178 @@
             }
 
             const r = f.r;
+            const ax = Math.cos(f.aim);
+            const ay = Math.sin(f.aim);
+            const sx = -ay;
+            const sy = ax;
+            const teamColor = f.team === 'blue' ? '#29B6F6' : '#EF5350';
+            const bob = f.moving ? Math.sin(f.walkPhase * 2) * 1.1 : Math.sin(game.now / 700 + f.id) * 0.7;
+            const bodyY = f.y + bob;
 
-            // Тень
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+            ctx.save();
+
+            // Тень на земле
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
             ctx.beginPath();
-            ctx.ellipse(f.x, f.y + r * 0.85, r * 0.95, r * 0.45, 0, 0, Math.PI * 2);
+            ctx.ellipse(f.x, f.y + r * 0.9, r * 1.02, r * 0.46, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Кольцо команды
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = f.team === 'blue' ? 'rgba(41, 182, 246, 0.95)' : 'rgba(239, 83, 80, 0.95)';
+            // Командное кольцо под ногами
+            ctx.strokeStyle = teamColor;
+            ctx.globalAlpha = 0.45;
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
-            ctx.arc(f.x, f.y, r + 2, 0, Math.PI * 2);
+            ctx.ellipse(f.x, f.y + r * 0.78, r, r * 0.42, 0, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.globalAlpha = 1;
 
-            // Готовый супер
-            if (f.superReady) {
-                ctx.strokeStyle = 'rgba(255, 213, 79, 0.9)';
-                ctx.lineWidth = 2.5;
+            // Ноги
+            const swing = f.moving ? Math.sin(f.walkPhase) * 5 : 0;
+            ctx.strokeStyle = '#26313D';
+            ctx.lineWidth = 7;
+            ctx.lineCap = 'round';
+            for (let side = -1; side <= 1; side += 2) {
+                const hx = f.x - ax * r * 0.2 + sx * side * 6;
+                const hy = f.y - ay * r * 0.2 + sy * side * 6;
                 ctx.beginPath();
-                ctx.arc(f.x, f.y, r + 7, 0, Math.PI * 2);
+                ctx.moveTo(hx, hy);
+                ctx.lineTo(hx - ax * r * 0.55 + ax * swing * side, hy - ay * r * 0.55 + ay * swing * side);
+                ctx.stroke();
+            }
+            ctx.lineCap = 'butt';
+
+            // Оружие
+            ctx.save();
+            ctx.translate(f.x, bodyY);
+            ctx.rotate(f.aim);
+            drawWeapon(f, r);
+            ctx.restore();
+
+            // Снаряжение за спиной (плечи с кантом команды)
+            for (let side = -1; side <= 1; side += 2) {
+                const px = f.x - ax * r * 0.35 + sx * side * r * 0.62;
+                const py = bodyY - ay * r * 0.35 + sy * side * r * 0.62;
+                ctx.beginPath();
+                ctx.arc(px, py, r * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = f.colorDark;
+                ctx.fill();
+                ctx.strokeStyle = teamColor;
+                ctx.lineWidth = 2;
                 ctx.stroke();
             }
 
             // Корпус
-            const grad = ctx.createLinearGradient(f.x, f.y - r, f.x, f.y + r);
-            grad.addColorStop(0, f.color);
-            grad.addColorStop(1, f.colorDark);
-            ctx.fillStyle = grad;
+            const bg = ctx.createRadialGradient(f.x - r * 0.35, bodyY - r * 0.45, r * 0.15, f.x, bodyY, r * 1.15);
+            bg.addColorStop(0, f.colorLight);
+            bg.addColorStop(0.45, f.color);
+            bg.addColorStop(1, f.colorDark);
             ctx.beginPath();
-            ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+            ctx.arc(f.x, bodyY, r, 0, Math.PI * 2);
+            ctx.fillStyle = bg;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(10, 16, 22, 0.6)';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Нагрудник команды
+            ctx.fillStyle = teamColor;
+            ctx.globalAlpha = 0.85;
+            ctx.beginPath();
+            ctx.moveTo(f.x + ax * r * 0.15, bodyY + ay * r * 0.15);
+            ctx.lineTo(f.x - ax * r * 0.35 + sx * r * 0.32, bodyY - ay * r * 0.35 + sy * r * 0.32);
+            ctx.lineTo(f.x - ax * r * 0.35 - sx * r * 0.32, bodyY - ay * r * 0.35 - sy * r * 0.32);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+
+            // Голова в шлеме
+            const headX = f.x + ax * r * 0.1;
+            const headY = bodyY + ay * r * 0.1;
+            const hr = r * 0.66;
+            const hg = ctx.createRadialGradient(headX - hr * 0.4, headY - hr * 0.45, hr * 0.15, headX, headY, hr * 1.1);
+            hg.addColorStop(0, f.colorLight);
+            hg.addColorStop(0.5, f.color);
+            hg.addColorStop(1, f.colorDark);
+            ctx.beginPath();
+            ctx.arc(headX, headY, hr, 0, Math.PI * 2);
+            ctx.fillStyle = hg;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(10, 16, 22, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Гребень и визор шлема
+            ctx.save();
+            ctx.translate(headX, headY);
+            ctx.rotate(f.aim);
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-hr * 0.55, 0);
+            ctx.lineTo(hr * 0.55, 0);
+            ctx.stroke();
+
+            ctx.fillStyle = '#12303F';
+            pathRoundRect(hr * 0.3, -hr * 0.7, hr * 0.34, hr * 1.4, 4);
             ctx.fill();
 
-            // Ствол
-            ctx.strokeStyle = '#1b2632';
-            ctx.lineWidth = 7;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(f.x, f.y);
-            ctx.lineTo(f.x + Math.cos(f.aim) * (r + 9), f.y + Math.sin(f.aim) * (r + 9));
-            ctx.stroke();
-            ctx.lineCap = 'butt';
+            ctx.fillStyle = 'rgba(190, 245, 255, 0.75)';
+            pathRoundRect(hr * 0.38, -hr * 0.55, hr * 0.1, hr * 0.32, 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // Готовый супер: пульсирующая аура
+            if (f.superReady) {
+                const pulse = 0.5 + Math.sin(game.now / 180) * 0.5;
+                ctx.strokeStyle = 'rgba(255, 213, 79, ' + (0.35 + pulse * 0.45).toFixed(2) + ')';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(f.x, bodyY, r + 6 + pulse * 3, 0, Math.PI * 2);
+                ctx.stroke();
+            }
 
             // Вспышка от урона
             if (f.flash > 0) {
-                ctx.fillStyle = 'rgba(255, 255, 255, ' + Math.min(0.8, f.flash * 5) + ')';
+                ctx.fillStyle = 'rgba(255, 255, 255, ' + Math.min(0.75, f.flash * 5) + ')';
                 ctx.beginPath();
-                ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+                ctx.arc(f.x, bodyY, r + 1, 0, Math.PI * 2);
                 ctx.fill();
             }
 
+            ctx.restore();
+
             // Полоска здоровья
-            const bw = 44;
-            const bh = 6;
+            const bw = 46;
+            const bh = 7;
             const bx = f.x - bw / 2;
-            const by = f.y - r - 20;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
-            ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
-            ctx.fillStyle = f.team === 'blue' ? '#29B6F6' : '#EF5350';
-            ctx.fillRect(bx, by, bw * Math.max(0, f.hp / f.maxHp), bh);
+            const by = f.y - r - 22;
+            pathRoundRect(bx - 2, by - 2, bw + 4, bh + 4, 4);
+            ctx.fillStyle = 'rgba(8, 12, 18, 0.62)';
+            ctx.fill();
+            const hpRatio = Math.max(0, f.hp / f.maxHp);
+            const hpGrad = ctx.createLinearGradient(bx, by, bx + bw, by);
+            hpGrad.addColorStop(0, teamColor);
+            hpGrad.addColorStop(1, f.team === 'blue' ? '#7FD8FF' : '#FF8A80');
+            pathRoundRect(bx, by, bw * hpRatio, bh, 3);
+            ctx.fillStyle = hpGrad;
+            ctx.fill();
 
             // Имя
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.font = 'bold 9px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            ctx.fillText(f.isPlayer ? 'ТЫ' : f.brawler.name, f.x, by - 5);
+            ctx.fillText(f.isPlayer ? 'ТЫ' : f.brawler.name, f.x, by - 6);
 
             // Маркер игрока
             if (f.isPlayer) {
                 ctx.fillStyle = '#FFD54F';
                 ctx.beginPath();
-                ctx.moveTo(f.x - 5, by - 26);
-                ctx.lineTo(f.x + 5, by - 26);
-                ctx.lineTo(f.x, by - 19);
+                ctx.moveTo(f.x - 5, by - 27);
+                ctx.lineTo(f.x + 5, by - 27);
+                ctx.lineTo(f.x, by - 20);
                 ctx.closePath();
                 ctx.fill();
             }
@@ -1207,21 +1450,22 @@
                 const gap = 4;
                 const startX = f.x - (total * pipW + (total - 1) * gap) / 2;
                 for (let i = 0; i < total; i++) {
-                    ctx.fillStyle = i < f.ammo ? '#FFD54F' : 'rgba(255, 255, 255, 0.2)';
-                    ctx.fillRect(startX + i * (pipW + gap), by + bh + 4, pipW, 4);
+                    pathRoundRect(startX + i * (pipW + gap), by + bh + 5, pipW, 4, 2);
+                    ctx.fillStyle = i < f.ammo ? '#FFD54F' : 'rgba(255, 255, 255, 0.22)';
+                    ctx.fill();
                 }
             }
 
-            // Подсказка прицела игрока
+            // Прицел игрока
             if (f.isPlayer && game.mode === 'playing') {
                 ctx.save();
-                ctx.globalAlpha = 0.3;
+                ctx.globalAlpha = 0.32;
                 ctx.strokeStyle = '#FFD54F';
                 ctx.lineWidth = 3;
-                ctx.setLineDash([8, 8]);
+                ctx.setLineDash([9, 9]);
                 ctx.beginPath();
-                ctx.moveTo(f.x + Math.cos(f.aim) * (r + 14), f.y + Math.sin(f.aim) * (r + 14));
-                ctx.lineTo(f.x + Math.cos(f.aim) * (r + 80), f.y + Math.sin(f.aim) * (r + 80));
+                ctx.moveTo(f.x + ax * (r + 16), f.y + ay * (r + 16));
+                ctx.lineTo(f.x + ax * (r + 84), f.y + ay * (r + 84));
                 ctx.stroke();
                 ctx.restore();
             }
@@ -1229,22 +1473,81 @@
 
         function drawBullets() {
             ctx.save();
-            ctx.shadowBlur = 8;
+            ctx.lineCap = 'round';
+
             for (const b of game.bullets) {
-                ctx.shadowColor = b.color;
-                ctx.fillStyle = b.superShot ? '#FFF3C4' : b.color;
+                const speed = Math.hypot(b.vx, b.vy) || 1;
+                const ux = b.vx / speed;
+                const uy = b.vy / speed;
+                const trail = b.superShot ? 26 : 15;
+                const tailX = b.x - ux * trail;
+                const tailY = b.y - uy * trail;
+
+                // Трассер
+                const tail = ctx.createLinearGradient(tailX, tailY, b.x, b.y);
+                tail.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                tail.addColorStop(1, b.color);
+                ctx.strokeStyle = tail;
+                ctx.lineWidth = b.r * 1.7;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+
+                // Ядро пули
+                ctx.shadowColor = b.color;
+                ctx.shadowBlur = b.superShot ? 16 : 8;
+                ctx.fillStyle = b.superShot ? '#FFFDE7' : '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.r * 0.85, 0, Math.PI * 2);
                 ctx.fill();
             }
+
             ctx.restore();
+        }
+
+        function drawMuzzle() {
+            for (const m of game.muzzle) {
+                const t = Math.max(0, m.life / m.maxLife);
+                const size = (m.superShot ? 20 : 12) * (0.6 + t * 0.8);
+
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                ctx.rotate(m.angle);
+                ctx.globalAlpha = Math.min(1, t * 1.6);
+
+                ctx.fillStyle = '#FFFDE7';
+                ctx.beginPath();
+                for (let i = 0; i < 8; i++) {
+                    const ang = (Math.PI / 4) * i;
+                    const rad = i % 2 === 0 ? size : size * 0.42;
+                    const px = Math.cos(ang) * rad;
+                    const py = Math.sin(ang) * rad;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.globalAlpha = Math.min(0.9, t);
+                ctx.fillStyle = m.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+            ctx.globalAlpha = 1;
         }
 
         function drawParticles() {
             for (const p of game.particles) {
-                ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.maxLife));
+                const t = Math.max(0, Math.min(1, p.life / p.maxLife));
+                ctx.globalAlpha = t;
                 ctx.fillStyle = p.color;
-                ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * (0.4 + t * 0.6), 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.globalAlpha = 1;
         }
@@ -1268,19 +1571,30 @@
             const left = Math.max(0, (p.respawnAt - game.now) / 1000);
 
             ctx.save();
-            ctx.fillStyle = 'rgba(120, 0, 0, 0.18)';
+            ctx.fillStyle = 'rgba(120, 0, 0, 0.16)';
             ctx.fillRect(0, 0, W, H);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-            ctx.fillRect(0, H / 2 - 44, W, 88);
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 18px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('ВОЗРОЖДЕНИЕ', W / 2, H / 2 - 12);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.font = 'bold 19px sans-serif';
+            ctx.strokeText('ВОЗРОЖДЕНИЕ', W / 2, H / 2 - 14);
+            ctx.fillStyle = '#fff';
+            ctx.fillText('ВОЗРОЖДЕНИЕ', W / 2, H / 2 - 14);
+            ctx.font = 'bold 30px sans-serif';
+            ctx.strokeText(Math.ceil(left) + '…', W / 2, H / 2 + 26);
             ctx.fillStyle = '#FFD54F';
-            ctx.font = 'bold 26px sans-serif';
-            ctx.fillText(Math.ceil(left) + '…', W / 2, H / 2 + 22);
+            ctx.fillText(Math.ceil(left) + '…', W / 2, H / 2 + 26);
             ctx.restore();
+        }
+
+        function drawLowHpOverlay() {
+            const p = game.player;
+            if (!p || !p.alive || game.mode !== 'playing') return;
+            if (p.hp / p.maxHp > 0.3) return;
+            const pulse = 0.5 + Math.sin(game.now / 180) * 0.5;
+            ctx.fillStyle = 'rgba(160, 0, 0, ' + (0.10 + pulse * 0.10).toFixed(3) + ')';
+            ctx.fillRect(0, 0, W, H);
         }
 
         function render() {
@@ -1291,6 +1605,7 @@
 
             for (const f of game.fighters) drawFighter(f);
             drawBullets();
+            drawMuzzle();
             drawParticles();
             drawFloaters();
 
@@ -1299,6 +1614,7 @@
                 ctx.fillRect(0, 0, W, H);
             }
 
+            drawLowHpOverlay();
             drawDeathOverlay();
         }
 
@@ -1428,6 +1744,7 @@
             game.bullets = [];
             game.particles = [];
             game.floaters = [];
+            game.muzzle = [];
             game.scoreBlue = 0;
             game.scoreRed = 0;
             game.timeLeft = MATCH_LENGTH;
@@ -1490,6 +1807,7 @@
             game.bullets = [];
             game.particles = [];
             game.floaters = [];
+            game.muzzle = [];
             game.player = null;
             game.timeLeft = MATCH_LENGTH;
             game.scoreBlue = 0;
