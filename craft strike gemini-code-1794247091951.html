@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Craft Strike</title>
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; user-select: none; }
+        body { background: #1a1a1a; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; background: #2e7d32; }
+
+        #ui {
+            position: absolute; top: 12px; left: 12px; color: white;
+            font-size: 16px; font-weight: bold; text-shadow: 2px 2px 4px #000;
+            pointer-events: none; z-index: 10;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+
+        #buffs-ui {
+            font-size: 13px; color: #FFEB3B; text-shadow: 1px 1px 3px #000;
+        }
+
+        /* Селектор оружия */
+        #weapons {
+            position: absolute; bottom: 15px; right: 15px;
+            display: flex; gap: 8px; z-index: 20;
+        }
+        .w-btn {
+            background: rgba(0, 0, 0, 0.6); color: #fff; border: 2px solid #555;
+            padding: 10px 14px; border-radius: 8px; font-weight: bold; font-size: 13px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .w-btn.active {
+            border-color: #FFEB3B; background: rgba(255, 235, 59, 0.2); color: #FFEB3B;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>Очки: <span id="score">0</span> | HP: <span id="hp">100</span></div>
+        <div id="buffs-ui"></div>
+    </div>
+    
+    <div id="weapons">
+        <button class="w-btn active" onclick="setWeapon('pistol', this)">🔫 Пистолет</button>
+        <button class="w-btn" onclick="setWeapon('shotgun', this)">💥 Дробовик</button>
+        <button class="w-btn" onclick="setWeapon('rifle', this)">⚡ Автомат</button>
+    </div>
+
+    <canvas id="game"></canvas>
+
+    <script>
+        if (window.Telegram && window.Telegram.WebApp) {
+            Telegram.WebApp.ready();
+            Telegram.WebApp.expand();
+        }
+
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let score = 0;
+        let gameOver = false;
+
+        // Настройки оружия
+        const WEAPONS = {
+            pistol:  { name: 'Пистолет', fireRate: 350, damage: 15, speed: 9,  pellets: 1, spread: 0.05, color: '#FFEB3B', range: 380 },
+            shotgun: { name: 'Дробовик', fireRate: 750, damage: 9,  speed: 7,  pellets: 5, spread: 0.35, color: '#FF9800', range: 250 },
+            rifle:   { name: 'Автомат',  fireRate: 140, damage: 7,  speed: 11, pellets: 1, spread: 0.12, color: '#00E676', range: 420 }
+        };
+        let currentWeapon = WEAPONS.pistol;
+
+        function setWeapon(type, btn) {
+            currentWeapon = WEAPONS[type];
+            document.querySelectorAll('.w-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                Telegram.WebApp.HapticFeedback.selectionChanged();
+            }
+        }
+
+        // Игрок и усиления
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 22,
+            baseSpeed: 3.5,
+            hp: 100,
+            maxHp: 100,
+            color: '#2196F3',
+            buffs: {
+                damageTimer: 0,
+                speedTimer: 0
+            }
+        };
+
+        // Блоки-препятствия
+        const blocks = [
+            { x: canvas.width * 0.2, y: canvas.height * 0.25, w: 80, h: 80 },
+            { x: canvas.width * 0.7, y: canvas.height * 0.25, w: 80, h: 80 },
+            { x: canvas.width * 0.45, y: canvas.height * 0.5 - 40, w: 90, h: 90 },
+            { x: canvas.width * 0.2, y: canvas.height * 0.7, w: 80, h: 80 },
+            { x: canvas.width * 0.7, y: canvas.height * 0.7, w: 80, h: 80 }
+        ];
+
+        let joystick = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
+        const bullets = [];
+        const enemies = [];
+        const drops = []; // Массив выпавших предметов
+        let lastShoot = 0;
+
+        // Обработка касаний
+        window.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#weapons')) return;
+            const touch = e.touches[0];
+            joystick.active = true;
+            joystick.startX = touch.clientX;
+            joystick.startY = touch.clientY;
+            joystick.moveX = 0; joystick.moveY = 0;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!joystick.active) return;
+            const touch = e.touches[0];
+            const dx = touch.clientX - joystick.startX;
+            const dy = touch.clientY - joystick.startY;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = 50;
+
+            if (dist > 0) {
+                joystick.moveX = (dx / dist) * Math.min(dist, maxDist) / maxDist;
+                joystick.moveY = (dy / dist) * Math.min(dist, maxDist) / maxDist;
+            }
+        });
+
+        window.addEventListener('touchend', () => {
+            joystick.active = false;
+            joystick.moveX = 0; joystick.moveY = 0;
+        });
+
+        function checkBlockCollision(nx, ny, size) {
+            for (let b of blocks) {
+                if (nx + size > b.x && nx - size < b.x + b.w &&
+                    ny + size > b.y && ny - size < b.y + b.h) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Спавн врагов
+        function spawnEnemy() {
+            if (enemies.length >= 8 || gameOver) return;
+            const size = 20;
+            let x, y;
+            if (Math.random() < 0.5) {
+                x = Math.random() < 0.5 ? -size : canvas.width + size;
+                y = Math.random() * canvas.height;
+            } else {
+                x = Math.random() * canvas.width;
+                y = Math.random() < 0.5 ? -size : canvas.height + size;
+            }
+            enemies.push({ x, y, size, speed: 1.4, hp: 35, maxHp: 35, color: '#f44336' });
+        }
+        setInterval(spawnEnemy, 1500);
+
+        // Спавн предметов при смерти врага (Шанс 45%)
+        function tryDropItem(x, y) {
+            if (Math.random() > 0.45) return;
+            const types = ['heal', 'damage', 'speed'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            drops.push({
+                x, y, type,
+                size: 14,
+                despawnTimer: Date.now() + 8000 // Исчезает через 8 сек
+            });
+        }
+
+        // Автострельба
+        function autoShoot(now) {
+            if (now - lastShoot < currentWeapon.fireRate || enemies.length === 0) return;
+
+            let nearest = null;
+            let minDist = Infinity;
+            enemies.forEach(enemy => {
+                const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearest = enemy;
+                }
+            });
+
+            if (nearest && minDist < currentWeapon.range) {
+                const baseAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+                const isDamageBoosted = player.buffs.damageTimer > now;
+                const finalDamage = currentWeapon.damage * (isDamageBoosted ? 2 : 1);
+
+                for (let i = 0; i < currentWeapon.pellets; i++) {
+                    const angleOffset = (Math.random() - 0.5) * currentWeapon.spread;
+                    const angle = baseAngle + angleOffset;
+                    bullets.push({
+                        x: player.x,
+                        y: player.y,
+                        vx: Math.cos(angle) * currentWeapon.speed,
+                        vy: Math.sin(angle) * currentWeapon.speed,
+                        radius: 4,
+                        damage: finalDamage,
+                        color: isDamageBoosted ? '#FF1744' : currentWeapon.color
+                    });
+                }
+                lastShoot = now;
+
+                if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                    Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                }
+            }
+        }
+
+        // Обновление физики и состояния
+        function update() {
+            if (gameOver) return;
+            const now = Date.now();
+
+            // Скорость с учётом баффа
+            const activeSpeed = player.baseSpeed + (player.buffs.speedTimer > now ? 2.0 : 0);
+            let newX = player.x + joystick.moveX * activeSpeed;
+            let newY = player.y + joystick.moveY * activeSpeed;
+
+            if (!checkBlockCollision(newX, player.y, player.size)) player.x = newX;
+            if (!checkBlockCollision(player.x, newY, player.size)) player.y = newY;
+
+            player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
+            player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+
+            autoShoot(now);
+
+            // Обработка подбора предметов (Drops)
+            for (let i = drops.length - 1; i >= 0; i--) {
+                const d = drops[i];
+                if (now > d.despawnTimer) {
+                    drops.splice(i, 1);
+                    continue;
+                }
+
+                // Касание игрока
+                if (Math.hypot(player.x - d.x, player.y - d.y) < player.size + d.size) {
+                    if (d.type === 'heal') {
+                        player.hp = Math.min(player.maxHp, player.hp + 30);
+                        document.getElementById('hp').innerText = Math.floor(player.hp);
+                    } else if (d.type === 'damage') {
+                        player.buffs.damageTimer = now + 5000; // 5 секунд 2X урона
+                    } else if (d.type === 'speed') {
+                        player.buffs.speedTimer = now + 5000;  // 5 секунд ускорения
+                    }
+
+                    if (window.Telegram && Telegram.WebApp.HapticFeedback) {
+                        Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+                    drops.splice(i, 1);
+                }
+            }
+
+            // Обновление UI для активных баффов
+            let buffTexts = [];
+            if (player.buffs.damageTimer > now) {
+                const sec = Math.ceil((player.buffs.damageTimer - now) / 1000);
+                buffTexts.push(`🔥 Урон x2 (${sec}с)`);
+            }
+            if (player.buffs.speedTimer > now) {
+                const sec = Math.ceil((player.buffs.speedTimer - now) / 1000);
+                buffTexts.push(`⚡ Ускорение (${sec}с)`);
+            }
+            document.getElementById('buffs-ui').innerText = buffTexts.join(' | ');
+
+            // Пули
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+
+                if (checkBlockCollision(b.x, b.y, b.radius) || 
+                    b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    if (Math.hypot(b.x - enemy.x, b.y - enemy.y) < enemy.size + b.radius) {
+                        enemy.hp -= b.damage;
+                        bullets.splice(i, 1);
+                        if (enemy.hp <= 0) {
+                            tryDropItem(enemy.x, enemy.y);
+                            enemies.splice(j, 1);
+                            score += 10;
+                            document.getElementById('score').innerText = score;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Враги
+            enemies.forEach((enemy) => {
+                const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+                let ex = enemy.x + Math.cos(angle) * enemy.speed;
+                let ey = enemy.y + Math.sin(angle) * enemy.speed;
+
+                if (!checkBlockCollision(ex, enemy.y, enemy.size)) enemy.x = ex;
+                if (!checkBlockCollision(enemy.x, ey, enemy.size)) enemy.y = ey;
+
+                if (Math.hypot(player.x - enemy.x, player.y - enemy.y) < player.size + enemy.size) {
+                    player.hp -= 0.35;
+                    document.getElementById('hp').innerText = Math.max(0, Math.floor(player.hp));
+                    if (player.hp <= 0) {
+                        gameOver = true;
+                        alert('Game Over! Счёт: ' + score);
+                        location.reload();
+                    }
+                }
+            });
+        }
+
+        // Отрисовка
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Сетка
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 2;
+            for (let x = 0; x < canvas.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Блоки
+            blocks.forEach(b => {
+                ctx.fillStyle = '#616161';
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+                ctx.strokeStyle = '#424242';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(b.x, b.y, b.w, b.h);
+            });
+
+            // Выпавшие трофеи (Drops)
+            drops.forEach(d => {
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+                if (d.type === 'heal') ctx.fillStyle = '#4CAF50';
+                else if (d.type === 'damage') ctx.fillStyle = '#FF1744';
+                else if (d.type === 'speed') ctx.fillStyle = '#00E5FF';
+                ctx.fill();
+
+                // Иконка трофея
+                ctx.fillStyle = '#FFF';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const label = d.type === 'heal' ? '✚' : (d.type === 'damage' ? '2X' : '⚡');
+                ctx.fillText(label, d.x, d.y);
+            });
+
+            // Пули
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Игрок
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x - player.size, player.y - player.size, player.size * 2, player.size * 2);
+
+            // Аура вокруг игрока при активных баффах
+            const now = Date.now();
+            if (player.buffs.damageTimer > now || player.buffs.speedTimer > now) {
+                ctx.strokeStyle = player.buffs.damageTimer > now ? '#FF1744' : '#00E5FF';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(player.x - player.size - 4, player.y - player.size - 4, player.size * 2 + 8, player.size * 2 + 8);
+            }
+
+            // Враги
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x - enemy.size, enemy.y - enemy.size, enemy.size * 2, enemy.size * 2);
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(enemy.x - enemy.size, enemy.y - enemy.size - 8, enemy.size * 2, 4);
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillRect(enemy.x - enemy.size, enemy.y - enemy.size - 8, (enemy.size * 2) * (enemy.hp / enemy.maxHp), 4);
+            });
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
