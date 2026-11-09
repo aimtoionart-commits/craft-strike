@@ -201,6 +201,41 @@
         joystickEl.addEventListener('lostpointercapture', resetJoystick);
         window.addEventListener('blur', resetJoystick);
 
+        // Управление с клавиатуры: WASD и стрелки (e.code не зависит от раскладки)
+        const keys = new Set();
+        const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
+
+        window.addEventListener('keydown', (e) => {
+            if (!MOVE_KEYS.has(e.code)) return;
+            e.preventDefault();
+            keys.add(e.code);
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys.delete(e.code);
+        });
+
+        window.addEventListener('blur', () => keys.clear());
+
+        // Итоговый вектор движения: клавиатура + джойстик, без ускорения по диагонали
+        function getMoveInput() {
+            let x = joystick.moveX;
+            let y = joystick.moveY;
+
+            if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1;
+            if (keys.has('KeyD') || keys.has('ArrowRight')) x += 1;
+            if (keys.has('KeyW') || keys.has('ArrowUp')) y -= 1;
+            if (keys.has('KeyS') || keys.has('ArrowDown')) y += 1;
+
+            const len = Math.hypot(x, y);
+            if (len > 1) {
+                x /= len;
+                y /= len;
+            }
+
+            return { x, y };
+        }
+
         function checkBlockCollision(nx, ny, size) {
             for (let b of blocks) {
                 if (nx + size > b.x && nx - size < b.x + b.w &&
@@ -286,8 +321,9 @@
 
             // Скорость с учётом баффа
             const activeSpeed = player.baseSpeed + (player.buffs.speedTimer > now ? 2.0 : 0);
-            let newX = player.x + joystick.moveX * activeSpeed;
-            let newY = player.y + joystick.moveY * activeSpeed;
+            const input = getMoveInput();
+            let newX = player.x + input.x * activeSpeed;
+            let newY = player.y + input.y * activeSpeed;
 
             if (!checkBlockCollision(newX, player.y, player.size)) player.x = newX;
             if (!checkBlockCollision(player.x, newY, player.size)) player.y = newY;
