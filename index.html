@@ -99,6 +99,16 @@
             100% { box-shadow: 0 0 0 0 rgba(255, 213, 79, 0); }
         }
 
+        /* ---------- Кнопка звука ---------- */
+        #soundBtn {
+            position: fixed; top: calc(8px + var(--safe-top)); right: 12px; z-index: 45;
+            width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+            background: rgba(10, 16, 24, 0.66); border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
+            touch-action: manipulation; -webkit-appearance: none;
+        }
+        #soundBtn.muted { opacity: 0.5; }
+
         /* ---------- Оверлеи меню и результата ---------- */
         .overlay {
             position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
@@ -171,6 +181,7 @@
     <div id="joyMove" class="joy"><span class="joy-label">ХОД</span><div class="knob"></div></div>
     <div id="joyFire" class="joy"><span class="joy-label">ОГОНЬ</span><div class="knob"></div></div>
     <button id="superBtn" type="button"><span class="charge"></span><span class="super-text">СУПЕР</span></button>
+    <button id="soundBtn" type="button" aria-label="Выключить звук">🔊</button>
 
     <div id="menu" class="overlay">
         <div class="logo">CRAFT<span>STRIKE</span></div>
@@ -212,6 +223,158 @@
                 else if (kind === 'success') tg.HapticFeedback.notificationOccurred('success');
                 else if (kind === 'error') tg.HapticFeedback.notificationOccurred('error');
             } catch (e) { /* старые версии Telegram */ }
+        }
+
+        /* ==============================================================
+           1b. ЗВУК (Web Audio, без файлов)
+           ============================================================== */
+        const SOUND_KEY = 'craftstrike_sound_v1';
+        const audio = { ctx: null, master: null, enabled: true, noiseBuffer: null, lastAny: 0, lastHit: 0 };
+
+        try {
+            if (localStorage.getItem(SOUND_KEY) === 'off') audio.enabled = false;
+        } catch (e) { /* приватный режим */ }
+
+        // Контекст создаём только после касания/клика — так требуют мобильные браузеры
+        function ensureAudio() {
+            if (audio.ctx) {
+                if (audio.ctx.state === 'suspended') audio.ctx.resume();
+                return audio.ctx;
+            }
+            const Ctor = window.AudioContext || window.webkitAudioContext;
+            if (!Ctor) return null;
+            try {
+                audio.ctx = new Ctor();
+            } catch (e) {
+                return null;
+            }
+            audio.master = audio.ctx.createGain();
+            audio.master.gain.value = audio.enabled ? 0.5 : 0;
+            audio.master.connect(audio.ctx.destination);
+
+            // Один общий буфер шума — дешевле, чем генерировать его на каждый выстрел
+            const rate = audio.ctx.sampleRate;
+            const buf = audio.ctx.createBuffer(1, Math.floor(rate * 0.4), rate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+            audio.noiseBuffer = buf;
+            return audio.ctx;
+        }
+
+        window.addEventListener('pointerdown', () => ensureAudio(), { passive: true });
+        window.addEventListener('keydown', () => ensureAudio(), { passive: true });
+
+        function tone(freq, dur, type, vol, slideTo, delay) {
+            const ac = ensureAudio();
+            if (!ac || !audio.enabled) return;
+            const t0 = ac.currentTime + (delay || 0);
+            const osc = ac.createOscillator();
+            const gain = ac.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.setValueAtTime(freq, t0);
+            if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur);
+            gain.gain.setValueAtTime(0.0001, t0);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.0005, vol), t0 + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            osc.connect(gain);
+            gain.connect(audio.master);
+            osc.start(t0);
+            osc.stop(t0 + dur + 0.03);
+        }
+
+        function noiseBurst(dur, vol, cutoff, delay) {
+            const ac = ensureAudio();
+            if (!ac || !audio.enabled || !audio.noiseBuffer) return;
+            const t0 = ac.currentTime + (delay || 0);
+            const src = ac.createBufferSource();
+            src.buffer = audio.noiseBuffer;
+            const filter = ac.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(cutoff || 1800, t0);
+            const gain = ac.createGain();
+            gain.gain.setValueAtTime(0.0001, t0);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.0005, vol), t0 + 0.008);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            src.connect(filter);
+            filter.connect(gain);
+            gain.connect(audio.master);
+            src.start(t0);
+            src.stop(t0 + dur + 0.02);
+        }
+
+        function sfxShoot(weaponId, isPlayer) {
+            if (!audio.enabled) return;
+            const now = performance.now();
+            if (now - audio.lastAny < 60) return;
+            audio.lastAny = now;
+            const vol = isPlayer ? 0.42 : 0.14;
+
+            if (weaponId === 'tank') {
+                noiseBurst(0.16, vol, 900);
+                tone(120, 0.12, 'square', vol * 0.35, 60);
+            } else if (weaponId === 'sniper') {
+                noiseBurst(0.12, vol * 1.1, 3200);
+                tone(760, 0.1, 'square', vol * 0.5, 220);
+            } else {
+                noiseBurst(0.07, vol * 0.8, 2400);
+                tone(560, 0.06, 'square', vol * 0.4, 300);
+            }
+        }
+
+        function sfxHit(isPlayer) {
+            if (!audio.enabled) return;
+            const now = performance.now();
+            if (now - audio.lastHit < 45) return;
+            audio.lastHit = now;
+            noiseBurst(0.05, isPlayer ? 0.5 : 0.18, 2200);
+            if (isPlayer) tone(100, 0.12, 'sine', 0.28, 55);
+        }
+
+        function sfxKill() {
+            tone(340, 0.16, 'triangle', 0.24, 120);
+            tone(680, 0.2, 'sine', 0.16, 1000, 0.06);
+        }
+
+        function sfxSuper(isPlayer) {
+            tone(280, 0.32, 'sawtooth', isPlayer ? 0.28 : 0.12, 1200);
+            noiseBurst(0.3, isPlayer ? 0.3 : 0.14, 2600);
+        }
+
+        function sfxRespawn() {
+            tone(420, 0.14, 'sine', 0.16, 760);
+        }
+
+        function sfxVictory() {
+            const notes = [523, 659, 784, 1047];
+            notes.forEach((f, i) => tone(f, 0.22, 'triangle', 0.26, null, i * 0.13));
+        }
+
+        function sfxDefeat() {
+            const notes = [440, 349, 262];
+            notes.forEach((f, i) => tone(f, 0.34, 'sine', 0.24, null, i * 0.17));
+        }
+
+        function sfxClick() {
+            tone(680, 0.05, 'square', 0.16, 520);
+        }
+
+        function updateSoundButton() {
+            const btn = document.getElementById('soundBtn');
+            if (!btn) return;
+            btn.textContent = audio.enabled ? '🔊' : '🔇';
+            btn.classList.toggle('muted', !audio.enabled);
+            btn.setAttribute('aria-label', audio.enabled ? 'Выключить звук' : 'Включить звук');
+        }
+
+        function setSoundEnabled(on) {
+            audio.enabled = on;
+            if (audio.master && audio.ctx) {
+                audio.master.gain.setTargetAtTime(on ? 0.5 : 0, audio.ctx.currentTime, 0.02);
+            } else if (on) {
+                ensureAudio();
+            }
+            try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch (e) { /* пусто */ }
+            updateSoundButton();
         }
 
         /* ==============================================================
@@ -709,6 +872,7 @@
             f.aim = f.team === 'blue' ? -Math.PI / 2 : Math.PI / 2;
             resolveWalls(f);
             burst(f.x, f.y, f.color, 14);
+            if (f.isPlayer) sfxRespawn();
         }
 
         // Бойцы не должны слипаться в одну точку
@@ -793,6 +957,7 @@
             const w = f.weapon;
             f.nextShotAt = now + w.cooldown;
             f.ammo -= 1;
+            sfxShoot(f.brawler.id, f.isPlayer);
 
             for (let i = 0; i < w.pellets; i++) {
                 const spread = (Math.random() - 0.5) * w.spread;
@@ -856,6 +1021,7 @@
                 angle: angle, color: '#FFD54F', life: 0.14, maxLife: 0.14, superShot: true
             });
             burst(f.x + Math.cos(angle) * f.r, f.y + Math.sin(angle) * f.r, '#FFD54F', 16);
+            sfxSuper(f.isPlayer);
             if (f.isPlayer) haptic('medium');
         }
 
@@ -864,6 +1030,7 @@
             target.hp -= amount;
             target.lastDamageAt = game.now;
             target.flash = 0.14;
+            sfxHit(target.isPlayer);
 
             if (owner && owner !== target) {
                 addSuperCharge(owner, amount * 0.028);
@@ -893,6 +1060,7 @@
             f.deaths += 1;
             f.respawnAt = game.now + RESPAWN_TIME;
             burst(f.x, f.y, f.color, 26);
+            sfxKill();
 
             if (killer && killer !== f) {
                 killer.kills += 1;
@@ -1717,6 +1885,7 @@
                 card.addEventListener('click', () => {
                     selectedBrawlerId = b.id;
                     renderCards();
+                    sfxClick();
                     haptic('light');
                 });
 
@@ -1799,6 +1968,9 @@
             }
 
             haptic(win ? 'success' : 'error');
+            if (win) sfxVictory();
+            else if (draw) sfxRespawn();
+            else sfxDefeat();
         }
 
         function showMenu() {
@@ -1827,12 +1999,18 @@
         /* ==============================================================
            16. КНОПКИ И ЗАПУСК
            ============================================================== */
-        document.getElementById('playBtn').addEventListener('click', startMatch);
-        document.getElementById('againBtn').addEventListener('click', startMatch);
-        document.getElementById('menuBtn').addEventListener('click', showMenu);
+        document.getElementById('playBtn').addEventListener('click', () => { sfxClick(); startMatch(); });
+        document.getElementById('againBtn').addEventListener('click', () => { sfxClick(); startMatch(); });
+        document.getElementById('menuBtn').addEventListener('click', () => { sfxClick(); showMenu(); });
         superBtn.addEventListener('click', () => {
             if (game.mode === 'playing') useSuper(game.player);
         });
+
+        document.getElementById('soundBtn').addEventListener('click', () => {
+            setSoundEnabled(!audio.enabled);
+            if (audio.enabled) sfxClick();
+        });
+        updateSoundButton();
 
         resize();
         renderCards();
