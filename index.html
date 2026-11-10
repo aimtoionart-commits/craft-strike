@@ -164,7 +164,7 @@
         #fireBtn:active { transform: translateY(3px); box-shadow: 0 3px 0 #8B2500; }
 
         #heroPreview {
-            width: 180px; height: 180px; border-radius: 20px; margin: 6px 0 2px;
+            width: 260px; height: 260px; border-radius: 20px; margin: 0;
             background: radial-gradient(circle at 50% 60%, rgba(41, 182, 246, 0.18), rgba(8, 12, 20, 0.85));
             border: 1px solid rgba(255, 255, 255, 0.12);
             box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
@@ -185,8 +185,62 @@
         /* ---------- Кошелёк, прокачка и сундуки в меню ---------- */
         #menu { justify-content: center; gap: 12px; }
         .menu-box {
-            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
             width: 100%; margin: auto 0;
+        }
+
+        .lobby-left, .lobby-right {
+            position: fixed; top: 50%; transform: translateY(-50%); z-index: 42;
+            display: flex; flex-direction: column; gap: 8px; width: 92px;
+        }
+        .lobby-left { left: 10px; }
+        .lobby-right { right: 10px; }
+        .side-btn {
+            padding: 10px 6px; border-radius: 12px; cursor: pointer; font-family: inherit;
+            font-size: 10px; font-weight: 900; letter-spacing: 0.3px; color: #fff;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+            border: 2px solid rgba(255, 255, 255, 0.16); text-align: center;
+            touch-action: manipulation; -webkit-appearance: none;
+        }
+        .side-btn.active { border-color: var(--gold); background: linear-gradient(180deg, rgba(255, 213, 79, 0.35), rgba(255, 213, 79, 0.10)); }
+
+        .hero-stage { display: flex; align-items: center; justify-content: center; gap: 2px; margin-top: 4px; }
+        .hero-arrow {
+            width: 38px; height: 38px; border-radius: 50%; cursor: pointer; z-index: 2;
+            background: rgba(10, 16, 24, 0.7); border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff; font-size: 24px; line-height: 1; touch-action: manipulation;
+        }
+        .hero-name { font-size: 24px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,0.5); }
+        .hero-sub { font-size: 12px; color: var(--gold); font-weight: 800; margin-top: -6px; }
+        .mode-card {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 9px 18px; border-radius: 14px; width: min(92vw, 380px); text-align: center;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+            border: 1px solid rgba(255, 255, 255, 0.16);
+        }
+        .mode-card b { font-size: 13px; color: #fff; letter-spacing: 0.5px; }
+        .mode-card span { font-size: 10px; color: #9fb0c4; }
+        .play-big { width: min(92vw, 380px); padding: 16px; font-size: 22px; }
+        #cards { display: none; }
+
+        #settingsModal { z-index: 60; }
+
+        @media (max-width: 520px) {
+            .lobby-left, .lobby-right { width: 74px; }
+            .side-btn { font-size: 9px; padding: 9px 4px; }
+            #heroPreview { width: 230px !important; height: 230px !important; }
+        }
+
+        @media (max-height: 520px) {
+            .menu-box { gap: 4px; }
+            #heroPreview { width: 150px !important; height: 150px !important; }
+            .hero-name { font-size: 18px; }
+            .hero-sub { font-size: 10px; }
+            .mode-card { padding: 5px 12px; }
+            .play-big { padding: 10px; font-size: 18px; }
+            .wins { display: none; }
+            .lobby-left, .lobby-right { width: 70px; }
+            .side-btn { font-size: 9px; padding: 7px 3px; }
         }
         .menu-top { display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 440px; justify-content: center; }
         .wallet {
@@ -294,17 +348,28 @@
         </div>
         <div class="logo">CRAFT<span>STRIKE</span></div>
 
-        <div class="tabs" id="tabs">
-            <button class="tab active" type="button" data-tab="play" data-i18n="play">БОЙ</button>
-            <button class="tab" type="button" data-tab="upgrade" data-i18n="upgrade">ПРОКАЧКА</button>
-            <button class="tab" type="button" data-tab="chest" data-i18n="chest">СУНДУКИ</button>
+        <div class="lobby-left">
+            <button class="tab side-btn active" type="button" data-tab="play" data-i18n="play">БОЙЦЫ</button>
+            <button class="tab side-btn" type="button" data-tab="upgrade" data-i18n="upgrade">ПРОКАЧКА</button>
+            <button class="tab side-btn" type="button" data-tab="chest" data-i18n="chest">СУНДУКИ</button>
+        </div>
+
+        <div class="lobby-right">
+            <button class="side-btn" id="recordsBtn" type="button">РЕКОРДЫ</button>
+            <button class="side-btn" id="dailyBtn" type="button">БОНУС</button>
         </div>
 
         <div class="tab-page" id="page-play">
-            <canvas id="heroPreview" width="180" height="180" aria-label="герой"></canvas>
-            <div class="subtitle">Арена 3 на 3. Выбери бойца, помоги синей команде и набери 8 фрагов раньше красных.</div>
+            <div class="hero-stage">
+                <button class="hero-arrow" id="prevBrawler" type="button" aria-label="Предыдущий боец">‹</button>
+                <canvas id="heroPreview" width="300" height="300" aria-label="герой"></canvas>
+                <button class="hero-arrow" id="nextBrawler" type="button" aria-label="Следующий боец">›</button>
+            </div>
+            <div class="hero-name" id="heroName">Скаут</div>
+            <div class="hero-sub" id="heroLevel">Уровень 1</div>
+            <div class="mode-card"><b>ОДИНОЧНОЕ СТОЛКНОВЕНИЕ</b><span>3 на 3 · 8 фрагов · 90 секунд</span></div>
             <div id="cards"></div>
-            <button class="btn" id="playBtn" type="button">ИГРАТЬ</button>
+            <button class="btn play-big" id="playBtn" type="button">ИГРАТЬ</button>
             <div class="wins" id="winsLabel">Побед: 0</div>
             <div class="wins" id="leaderboardLabel"></div>
             <div class="wins" id="streakLabel">Серия входов: 0 дней</div>
@@ -622,9 +687,7 @@
             if (superText) superText.textContent = t('super');
             const fireButton = document.getElementById('fireBtn');
             if (fireButton) fireButton.textContent = t('fire');
-            document.querySelectorAll('.joy-label').forEach(el => {
-                // keep labels
-            });
+            if (typeof refreshHeroPreview === 'function') refreshHeroPreview();
         }
 
         function refreshHeroPreview() {
@@ -633,6 +696,10 @@
             heroPreviewFighter.moving = true;
             heroPreviewFighter.walkPhase = 0;
             heroPreviewFighter.aim = Math.PI / 2;
+            const nameEl = document.getElementById('heroName');
+            if (nameEl) nameEl.textContent = b.name;
+            const levelEl = document.getElementById('heroLevel');
+            if (levelEl) levelEl.textContent = (lang === 'ru' ? 'Уровень ' : 'Level ') + (levelOf(b.id) + 1);
         }
 
         // Препятствия заданы в долях экрана — работают и на телефоне, и на ПК
@@ -1607,12 +1674,16 @@
                 bg.addColorStop(1, 'rgba(8, 12, 20, 0)');
                 hctx.fillStyle = bg;
                 hctx.fillRect(0, 0, w, h);
-                heroPreviewFighter.x = w / 2;
-                heroPreviewFighter.y = h / 2 + 14;
                 heroPreviewFighter.walkPhase += dt * 3;
                 const prevCtx = ctx;
                 ctx = hctx;
+                hctx.save();
+                hctx.translate(w / 2, h / 2 + 10);
+                hctx.scale(2.1, 2.1);
+                heroPreviewFighter.x = 0;
+                heroPreviewFighter.y = 0;
                 drawFighter(heroPreviewFighter);
+                hctx.restore();
                 ctx = prevCtx;
             }
             requestAnimationFrame(frame);
@@ -2136,6 +2207,10 @@
         const settingsSoundBtn = document.getElementById('settingsSoundBtn');
         const settingsLangBtn = document.getElementById('settingsLangBtn');
         const settingsFsBtn = document.getElementById('settingsFsBtn');
+        const prevBrawlerBtn = document.getElementById('prevBrawler');
+        const nextBrawlerBtn = document.getElementById('nextBrawler');
+        const recordsBtn = document.getElementById('recordsBtn');
+        const dailyBtn = document.getElementById('dailyBtn');
         const settingsCloseBtn = document.getElementById('settingsCloseBtn');
         const resultTitle = document.getElementById('resultTitle');
         const resultScore = document.getElementById('resultScore');
@@ -2586,6 +2661,20 @@
         settingsCloseBtn.addEventListener('click', () => { sfxClick(); settingsModal.classList.add('hidden'); });
         settingsSoundBtn.addEventListener('click', () => { setSoundEnabled(!audio.enabled); applyLang(); if (audio.enabled) sfxClick(); });
         settingsLangBtn.addEventListener('click', () => { sfxClick(); setLang(lang === 'ru' ? 'en' : 'ru'); });
+        function cycleBrawler(dir) {
+            const i = BRAWLERS.findIndex(b => b.id === selectedBrawlerId);
+            const next = (i + dir + BRAWLERS.length) % BRAWLERS.length;
+            selectedBrawlerId = BRAWLERS[next].id;
+            renderCards();
+            renderPicker();
+            renderUpgradePanel();
+            sfxClick();
+            haptic('light');
+        }
+        prevBrawlerBtn.addEventListener('click', () => cycleBrawler(-1));
+        nextBrawlerBtn.addEventListener('click', () => cycleBrawler(1));
+        recordsBtn.addEventListener('click', () => { sfxClick(); const list = loadLeaderboard(); toast(list.length ? list.slice(0, 3).map((e, i) => (i + 1) + '. ' + e.name + ' — ' + e.kills).join(' · ') : 'Рекордов пока нет'); });
+        dailyBtn.addEventListener('click', () => { if (!claimDaily()) toast('Бонус уже получен сегодня'); });
         settingsFsBtn.addEventListener('click', () => {
             sfxClick();
             try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
