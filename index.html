@@ -151,6 +151,18 @@
         }
         .wins { color: #8fa3b6; font-size: 12px; }
 
+        #fireBtn {
+            position: fixed; right: 24px; bottom: calc(232px + var(--safe-bottom));
+            width: 68px; height: 68px; border-radius: 50%; z-index: 21;
+            display: grid; place-items: center; cursor: pointer;
+            background: linear-gradient(180deg, #FF7043, #D84315);
+            border: 2px solid rgba(255, 255, 255, 0.25); color: #fff;
+            font: 900 12px/1 "Trebuchet MS", sans-serif; letter-spacing: 0.5px;
+            box-shadow: 0 6px 0 #8B2500, 0 10px 24px rgba(0, 0, 0, 0.4);
+            touch-action: manipulation; -webkit-appearance: none;
+        }
+        #fireBtn:active { transform: translateY(3px); box-shadow: 0 3px 0 #8B2500; }
+
         #heroPreview {
             width: 180px; height: 180px; border-radius: 20px; margin: 6px 0 2px;
             background: radial-gradient(circle at 50% 60%, rgba(41, 182, 246, 0.18), rgba(8, 12, 20, 0.85));
@@ -269,9 +281,9 @@
 
     <div id="hint">Двигайся левым джойстиком · стреляй правым · СУПЕР копится от урона</div>
 
-    <div id="joyMove" class="joy"><span class="joy-label">ХОД</span><div class="knob"></div></div>
-    <div id="joyFire" class="joy"><span class="joy-label">ОГОНЬ</span><div class="knob"></div></div>
-    <button id="superBtn" type="button"><span class="charge"></span><span class="super-text">СУПЕР</span></button>
+    <div id="joyMove" class="joy"><span class="joy-label">ХОД</span><div class="knob"></div></div>        <div id="joyFire" class="joy"><span class="joy-label">ПРИЦЕЛ</span><div class="knob"></div></div>
+        <button id="fireBtn" type="button">ОГОНЬ</button>
+        <button id="superBtn" type="button"><span class="charge"></span><span class="super-text">СУПЕР</span></button>
     <button id="soundBtn" type="button" aria-label="Выключить звук">🔊</button>
 
     <div id="menu" class="overlay">
@@ -283,9 +295,9 @@
         <div class="logo">CRAFT<span>STRIKE</span></div>
 
         <div class="tabs" id="tabs">
-            <button class="tab active" type="button" data-tab="play">БОЙ</button>
-            <button class="tab" type="button" data-tab="upgrade">ПРОКАЧКА</button>
-            <button class="tab" type="button" data-tab="chest">СУНДУКИ</button>
+            <button class="tab active" type="button" data-tab="play" data-i18n="play">БОЙ</button>
+            <button class="tab" type="button" data-tab="upgrade" data-i18n="upgrade">ПРОКАЧКА</button>
+            <button class="tab" type="button" data-tab="chest" data-i18n="chest">СУНДУКИ</button>
         </div>
 
         <div class="tab-page" id="page-play">
@@ -294,6 +306,7 @@
             <div id="cards"></div>
             <button class="btn" id="playBtn" type="button">ИГРАТЬ</button>
             <div class="wins" id="winsLabel">Побед: 0</div>
+            <div class="wins" id="leaderboardLabel"></div>
             <div class="wins" id="streakLabel">Серия входов: 0 дней</div>
         </div>
 
@@ -327,6 +340,7 @@
         <div class="modal">
             <div class="modal-title">Настройки</div>
             <button class="btn ghost" id="settingsSoundBtn" type="button">Звук: вкл</button>
+            <button class="btn ghost" id="settingsLangBtn" type="button">Язык: Русский</button>
             <div class="subtitle">Громкость и вибрация. Прогресс и монеты хранятся на этом устройстве.</div>
             <button class="btn ghost" id="settingsCloseBtn" type="button">Закрыть</button>
         </div>
@@ -564,6 +578,53 @@
 
         let selectedBrawlerId = 'scout';
         let heroPreviewFighter = null;
+        let lang = localStorage.getItem('craftstrike_lang_v1') || 'ru';
+        const I18N = {
+            ru: {
+                play: 'БОЙ', upgrade: 'ПРОКАЧКА', chests: 'СУНДУКИ',
+                playSub: 'Арена 3 на 3. Выбери бойца, помоги синей команде и набери 8 фрагов раньше красных.',
+                settings: 'Настройки', sound: 'Звук', lang: 'Язык', close: 'Закрыть',
+                aim: 'ПРИЦЕЛ', fire: 'ОГОНЬ', super: 'СУПЕР', move: 'ХОД',
+                record: 'Рекорд', leaderboard: 'Таблица рекордов'
+            },
+            en: {
+                play: 'PLAY', upgrade: 'UPGRADE', chests: 'CHESTS',
+                playSub: '3v3 arena. Pick a fighter, help the blue team and get 8 frags before the red team.',
+                settings: 'Settings', sound: 'Sound', lang: 'Language', close: 'Close',
+                aim: 'AIM', fire: 'FIRE', super: 'SUPER', move: 'MOVE',
+                record: 'Record', leaderboard: 'Leaderboard'
+            }
+        };
+        function t(key) { return (I18N[lang] && I18N[lang][key]) || key; }
+        function setLang(next) { lang = next; try { localStorage.setItem('craftstrike_lang_v1', lang); } catch (e) {} applyLang(); }
+        function applyLang() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                const k = tab.dataset.i18n;
+                if (k) tab.textContent = t(k);
+            });
+            const sub = document.querySelector('#page-play .subtitle');
+            if (sub) sub.textContent = t('playSub');
+            const settingsTitle = document.querySelector('#settingsModal .modal-title');
+            if (settingsTitle) settingsTitle.textContent = t('settings');
+            const soundBtn = document.getElementById('settingsSoundBtn');
+            if (soundBtn) soundBtn.textContent = t('sound') + ': ' + (audio.enabled ? (lang === 'ru' ? 'вкл' : 'on') : (lang === 'ru' ? 'выкл' : 'off'));
+            const closeBtn = document.getElementById('settingsCloseBtn');
+            if (closeBtn) closeBtn.textContent = t('close');
+            const langBtn = document.getElementById('settingsLangBtn');
+            if (langBtn) langBtn.textContent = t('lang') + ': ' + (lang === 'ru' ? 'Русский' : 'English');
+            const moveLabel = document.querySelector('#joyMove .joy-label');
+            if (moveLabel) moveLabel.textContent = t('move');
+            const aimLabel = document.querySelector('#joyFire .joy-label');
+            if (aimLabel) aimLabel.textContent = t('aim');
+            const superText = document.querySelector('#superBtn .super-text');
+            if (superText) superText.textContent = t('super');
+            const fireButton = document.getElementById('fireBtn');
+            if (fireButton) fireButton.textContent = t('fire');
+            document.querySelectorAll('.joy-label').forEach(el => {
+                // keep labels
+            });
+        }
 
         function refreshHeroPreview() {
             const b = BRAWLERS.find(x => x.id === selectedBrawlerId) || BRAWLERS[0];
@@ -610,6 +671,7 @@
             moveX: 0,
             moveY: 0,
             fireHeld: false,
+            fireBtnHeld: false,
             mouseX: 0,
             mouseY: 0,
             mouseDown: false,
@@ -987,7 +1049,7 @@
         }
 
         function isFiring() {
-            return fireStick.active || input.mouseDown || input.keys.has('Space');
+            return input.fireBtnHeld || input.mouseDown || input.keys.has('Space');
         }
 
         function resetInputs() {
@@ -996,6 +1058,7 @@
             input.keys.clear();
             input.mouseDown = false;
             input.mouseActive = false;
+            input.fireBtnHeld = false;
         }
 
         /* ==============================================================
@@ -2044,11 +2107,33 @@
         const resultEl = document.getElementById('result');
         const cardsEl = document.getElementById('cards');
         const winsLabel = document.getElementById('winsLabel');
+        const leaderboardLabel = document.getElementById('leaderboardLabel');
+
+        function loadLeaderboard() {
+            try { return JSON.parse(localStorage.getItem('craftstrike_leaderboard_v1') || '[]'); } catch (e) { return []; }
+        }
+        function saveLeaderboard(list) {
+            try { localStorage.setItem('craftstrike_leaderboard_v1', JSON.stringify(list)); } catch (e) {}
+        }
+        function addLeaderboardEntry(kills) {
+            const list = loadLeaderboard();
+            const b = BRAWLERS.find(x => x.id === selectedBrawlerId);
+            list.push({ name: b ? b.name : 'Игрок', kills: kills, date: Date.now() });
+            list.sort((a, c) => c.kills - a.kills);
+            saveLeaderboard(list.slice(0, 5));
+        }
+        function renderLeaderboard() {
+            const list = loadLeaderboard();
+            if (!list.length) { leaderboardLabel.textContent = ''; return; }
+            const top = list.slice(0, 3).map((e, i) => (i + 1) + '. ' + e.name + ' — ' + e.kills).join('   ');
+            leaderboardLabel.textContent = t('leaderboard') + ': ' + top;
+        }
         const streakLabel = document.getElementById('streakLabel');
         const heroPreviewCanvas = document.getElementById('heroPreview');
         const settingsBtn = document.getElementById('settingsBtn');
         const settingsModal = document.getElementById('settingsModal');
         const settingsSoundBtn = document.getElementById('settingsSoundBtn');
+        const settingsLangBtn = document.getElementById('settingsLangBtn');
         const settingsCloseBtn = document.getElementById('settingsCloseBtn');
         const resultTitle = document.getElementById('resultTitle');
         const resultScore = document.getElementById('resultScore');
@@ -2069,6 +2154,7 @@
         const upgradePick = document.getElementById('upgradePick');
         const chestInfo = document.getElementById('chestInfo');
         const superBtn = document.getElementById('superBtn');
+        const fireBtn = document.getElementById('fireBtn');
         const scoreBlueEl = document.getElementById('scoreBlue');
         const scoreRedEl = document.getElementById('scoreRed');
         const timerEl = document.getElementById('timer');
@@ -2398,6 +2484,7 @@
             if (win) stats.wins += 1;
             if (game.player) stats.bestKills = Math.max(stats.bestKills, game.player.kills);
             saveStats(stats);
+            if (game.player && game.player.kills > 0) addLeaderboardEntry(game.player.kills);
 
             // Награда: монеты за матч и фраги, сундук — за победу
             const kills = game.player ? game.player.kills : 0;
@@ -2446,6 +2533,7 @@
             menuEl.classList.remove('hidden');
             resultEl.classList.add('hidden');
             winsLabel.textContent = 'Побед: ' + stats.wins + ' · Матчей: ' + stats.matches;
+            renderLeaderboard();
             updateWallet();
             renderUpgradePanel();
             setTab('play');
@@ -2467,6 +2555,10 @@
         superBtn.addEventListener('click', () => {
             if (game.mode === 'playing') useSuper(game.player);
         });
+        fireBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); input.fireBtnHeld = true; if (fireBtn.setPointerCapture) fireBtn.setPointerCapture(e.pointerId); });
+        fireBtn.addEventListener('pointerup', () => { input.fireBtnHeld = false; });
+        fireBtn.addEventListener('pointercancel', () => { input.fireBtnHeld = false; });
+        fireBtn.addEventListener('lostpointercapture', () => { input.fireBtnHeld = false; });
 
         document.getElementById('soundBtn').addEventListener('click', () => {
             setSoundEnabled(!audio.enabled);
@@ -2485,17 +2577,20 @@
             });
         });
 
-        settingsBtn.addEventListener('click', () => { sfxClick(); settingsModal.classList.remove('hidden'); updateSettingsSoundLabel(); });
+        settingsBtn.addEventListener('click', () => { sfxClick(); settingsModal.classList.remove('hidden'); updateSettingsSoundLabel(); applyLang(); });
         settingsCloseBtn.addEventListener('click', () => { sfxClick(); settingsModal.classList.add('hidden'); });
-        settingsSoundBtn.addEventListener('click', () => { setSoundEnabled(!audio.enabled); updateSettingsSoundLabel(); if (audio.enabled) sfxClick(); });
+        settingsSoundBtn.addEventListener('click', () => { setSoundEnabled(!audio.enabled); applyLang(); if (audio.enabled) sfxClick(); });
+        settingsLangBtn.addEventListener('click', () => { sfxClick(); setLang(lang === 'ru' ? 'en' : 'ru'); });
         function updateSettingsSoundLabel() { settingsSoundBtn.textContent = 'Звук: ' + (audio.enabled ? 'вкл' : 'выкл'); }
         updateSettingsSoundLabel();
 
+        applyLang();
         resize();
         renderCards();
         renderPicker();
         updateWallet();
         renderUpgradePanel();
+        renderLeaderboard();
         showMenu();
         requestAnimationFrame(frame);
 
