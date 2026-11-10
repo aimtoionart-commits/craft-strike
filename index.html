@@ -171,7 +171,7 @@
         }
 
         #settingsBtn {
-            position: fixed; top: calc(8px + var(--safe-top)); left: 12px; z-index: 45;
+            position: fixed; top: calc(8px + var(--safe-top)); right: 60px; left: auto; z-index: 45;
         }
 
         .modal {
@@ -183,25 +183,22 @@
         .modal-title { font-size: 22px; font-weight: 900; color: #fff; }
 
         /* ---------- Кошелёк, прокачка и сундуки в меню ---------- */
-        #menu { justify-content: center; gap: 12px; }
+        #menu { justify-content: flex-start; gap: 12px; }
         .menu-box {
             display: flex; flex-direction: column; align-items: center; gap: 10px;
             width: 100%; margin: auto 0;
         }
 
-        .lobby-left, .lobby-right {
-            position: fixed; top: 50%; transform: translateY(-50%); z-index: 42;
-            display: flex; flex-direction: column; gap: 8px; width: 92px;
-        }
-        .lobby-left { left: 10px; }
-        .lobby-right { right: 10px; }
+        .lobby-railbar { display: flex; flex-wrap: nowrap; justify-content: center; gap: 6px; width: 100%; max-width: 440px; }
+        .lobby-left, .lobby-right { display: flex; flex-wrap: nowrap; justify-content: center; gap: 6px; }
         .side-btn {
-            padding: 10px 6px; border-radius: 12px; cursor: pointer; font-family: inherit;
+            min-width: 66px; padding: 9px 10px; border-radius: 12px; cursor: pointer; font-family: inherit;
             font-size: 10px; font-weight: 900; letter-spacing: 0.3px; color: #fff;
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
             border: 2px solid rgba(255, 255, 255, 0.16); text-align: center;
             touch-action: manipulation; -webkit-appearance: none;
         }
+        .menu-box.compact .logo { display: none; }
         .side-btn.active { border-color: var(--gold); background: linear-gradient(180deg, rgba(255, 213, 79, 0.35), rgba(255, 213, 79, 0.10)); }
 
         .hero-stage { display: flex; align-items: center; justify-content: center; gap: 2px; margin-top: 4px; }
@@ -225,22 +222,56 @@
 
         #settingsModal { z-index: 60; }
 
+        @media (orientation: landscape) and (min-width: 600px) {
+            .lobby-railbar { display: contents; }
+            .lobby-left, .lobby-right {
+                position: fixed; top: 50%; transform: translateY(-50%); z-index: 42;
+                flex-direction: column; flex-wrap: nowrap; width: 86px;
+            }
+            .lobby-left { left: 10px; }
+            .lobby-right { right: 10px; }
+            .tab-page { padding-left: 100px; padding-right: 100px; }
+            .side-btn { width: 100%; padding: 10px 4px; }
+        }
+
         @media (max-width: 520px) {
-            .lobby-left, .lobby-right { width: 74px; }
-            .side-btn { font-size: 9px; padding: 9px 4px; }
+            .side-btn { min-width: 58px; font-size: 9px; padding: 8px 7px; }
             #heroPreview { width: 230px !important; height: 230px !important; }
+        }
+
+        @media (max-height: 780px) and (orientation: portrait) {
+            .menu-box { gap: 6px; }
+            .logo { font-size: 30px; }
+            #heroPreview { width: 220px !important; height: 220px !important; }
+            .mode-card { padding: 7px 14px; }
+            .play-big { padding: 13px; font-size: 20px; }
         }
 
         @media (max-height: 520px) {
             .menu-box { gap: 4px; }
+            .logo { font-size: 24px; }
             #heroPreview { width: 150px !important; height: 150px !important; }
             .hero-name { font-size: 18px; }
             .hero-sub { font-size: 10px; }
             .mode-card { padding: 5px 12px; }
             .play-big { padding: 10px; font-size: 18px; }
             .wins { display: none; }
-            .lobby-left, .lobby-right { width: 70px; }
-            .side-btn { font-size: 9px; padding: 7px 3px; }
+            .side-btn { min-width: 58px; font-size: 9px; padding: 7px 5px; }
+        }
+
+        @media (orientation: landscape) and (max-height: 520px) {
+            .logo { display: none; }
+            .menu-box { gap: 3px; }
+            .menu-top { gap: 6px; }
+            .wallet { padding: 4px 10px; font-size: 12px; }
+            #heroPreview { width: 130px !important; height: 130px !important; }
+            .hero-arrow { width: 30px; height: 30px; font-size: 18px; }
+            .hero-name { font-size: 16px; }
+            .hero-sub { font-size: 9px; margin-top: -4px; }
+            .mode-card { padding: 4px 10px; }
+            .mode-card b { font-size: 11px; }
+            .mode-card span { font-size: 9px; }
+            .play-big { padding: 8px; font-size: 16px; }
         }
         .menu-top { display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 440px; justify-content: center; }
         .wallet {
@@ -348,15 +379,17 @@
         </div>
         <div class="logo">CRAFT<span>STRIKE</span></div>
 
-        <div class="lobby-left">
-            <button class="tab side-btn active" type="button" data-tab="play" data-i18n="play">БОЙЦЫ</button>
-            <button class="tab side-btn" type="button" data-tab="upgrade" data-i18n="upgrade">ПРОКАЧКА</button>
-            <button class="tab side-btn" type="button" data-tab="chest" data-i18n="chest">СУНДУКИ</button>
-        </div>
+        <div class="lobby-railbar">
+            <div class="lobby-left">
+                <button class="tab side-btn active" type="button" data-tab="play" data-i18n="brawlers">БОЙЦЫ</button>
+                <button class="tab side-btn" type="button" data-tab="upgrade" data-i18n="upgrade">ПРОКАЧКА</button>
+                <button class="tab side-btn" type="button" data-tab="chest" data-i18n="chests">СУНДУКИ</button>
+            </div>
 
-        <div class="lobby-right">
-            <button class="side-btn" id="recordsBtn" type="button">РЕКОРДЫ</button>
-            <button class="side-btn" id="dailyBtn" type="button">БОНУС</button>
+            <div class="lobby-right">
+                <button class="side-btn" id="recordsBtn" type="button" data-i18n="records">РЕКОРДЫ</button>
+                <button class="side-btn" id="dailyBtn" type="button" data-i18n="daily">БОНУС</button>
+            </div>
         </div>
 
         <div class="tab-page" id="page-play">
@@ -648,26 +681,32 @@
         const I18N = {
             ru: {
                 play: 'БОЙ', upgrade: 'ПРОКАЧКА', chests: 'СУНДУКИ',
+                brawlers: 'БОЙЦЫ', records: 'РЕКОРДЫ', daily: 'БОНУС',
+                start: 'ИГРАТЬ', modeTitle: 'ОДИНОЧНОЕ СТОЛКНОВЕНИЕ', modeSub: '3 на 3 · 8 фрагов · 90 секунд',
+                level: 'Уровень', wins: 'Побед', matches: 'Матчей', streak: 'Серия входов', days: 'дней',
                 playSub: 'Арена 3 на 3. Выбери бойца, помоги синей команде и набери 8 фрагов раньше красных.',
                 settings: 'Настройки', sound: 'Звук', lang: 'Язык', close: 'Закрыть',
+                fullscreen: 'Полный экран', exitFullscreen: 'Выйти из полного экрана',
                 aim: 'ПРИЦЕЛ', fire: 'ОГОНЬ', super: 'СУПЕР', move: 'ХОД',
-                record: 'Рекорд', leaderboard: 'Таблица рекордов'
+                record: 'Рекорд', leaderboard: 'Таблица рекордов', noRecords: 'Рекордов пока нет'
             },
             en: {
                 play: 'PLAY', upgrade: 'UPGRADE', chests: 'CHESTS',
+                brawlers: 'FIGHTERS', records: 'RECORDS', daily: 'BONUS',
+                start: 'PLAY', modeTitle: 'SOLO SHOWDOWN', modeSub: '3v3 · 8 frags · 90 seconds',
+                level: 'Level', wins: 'Wins', matches: 'Matches', streak: 'Login streak', days: 'days',
                 playSub: '3v3 arena. Pick a fighter, help the blue team and get 8 frags before the red team.',
                 settings: 'Settings', sound: 'Sound', lang: 'Language', close: 'Close',
+                fullscreen: 'Fullscreen', exitFullscreen: 'Exit fullscreen',
                 aim: 'AIM', fire: 'FIRE', super: 'SUPER', move: 'MOVE',
-                record: 'Record', leaderboard: 'Leaderboard'
+                record: 'Record', leaderboard: 'Leaderboard', noRecords: 'No records yet'
             }
         };
         function t(key) { return (I18N[lang] && I18N[lang][key]) || key; }
         function setLang(next) { lang = next; try { localStorage.setItem('craftstrike_lang_v1', lang); } catch (e) {} applyLang(); }
         function applyLang() {
-            const tabs = document.querySelectorAll('.tab');
-            tabs.forEach(tab => {
-                const k = tab.dataset.i18n;
-                if (k) tab.textContent = t(k);
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = t(el.dataset.i18n);
             });
             const sub = document.querySelector('#page-play .subtitle');
             if (sub) sub.textContent = t('playSub');
@@ -679,6 +718,16 @@
             if (closeBtn) closeBtn.textContent = t('close');
             const langBtn = document.getElementById('settingsLangBtn');
             if (langBtn) langBtn.textContent = t('lang') + ': ' + (lang === 'ru' ? 'Русский' : 'English');
+            const playBtn = document.getElementById('playBtn');
+            if (playBtn) playBtn.textContent = t('start');
+            const modeTitle = document.querySelector('.mode-card b');
+            if (modeTitle) modeTitle.textContent = t('modeTitle');
+            const modeSub = document.querySelector('.mode-card span');
+            if (modeSub) modeSub.textContent = t('modeSub');
+            const winsLabel = document.getElementById('winsLabel');
+            if (winsLabel) winsLabel.textContent = t('wins') + ': ' + stats.wins + ' · ' + t('matches') + ': ' + stats.matches;
+            const streakLabel = document.getElementById('streakLabel');
+            if (streakLabel) streakLabel.textContent = t('streak') + ': ' + (profile.streak || 0) + ' ' + t('days');
             const moveLabel = document.querySelector('#joyMove .joy-label');
             if (moveLabel) moveLabel.textContent = t('move');
             const aimLabel = document.querySelector('#joyFire .joy-label');
@@ -688,6 +737,8 @@
             const fireButton = document.getElementById('fireBtn');
             if (fireButton) fireButton.textContent = t('fire');
             if (typeof refreshHeroPreview === 'function') refreshHeroPreview();
+            if (typeof updateFullscreenLabel === 'function') updateFullscreenLabel();
+            if (typeof updateWallet === 'function') updateWallet();
         }
 
         // Большой герой в лобби: блочный персонаж в духе Minecraft
@@ -2323,19 +2374,31 @@
             coinCountEl.textContent = String(profile.coins);
             chestCountEl.textContent = String(n);
 
-            chestBtn.textContent = n > 0 ? 'ОТКРЫТЬ СУНДУК (' + n + ')' : 'СУНДУКОВ НЕТ';
+            chestBtn.textContent = lang === 'ru'
+                ? (n > 0 ? 'ОТКРЫТЬ СУНДУК (' + n + ')' : 'СУНДУКОВ НЕТ')
+                : (n > 0 ? 'OPEN CHEST (' + n + ')' : 'NO CHESTS');
             chestBtn.classList.toggle('ghost', n === 0);
-            if (streakLabel) streakLabel.textContent = 'Серия входов: ' + (profile.streak || 0) + ' ' + (profile.streak === 1 ? 'день' : 'дней');
+            if (streakLabel) {
+                const days = lang === 'ru'
+                    ? ((profile.streak || 0) === 1 ? 'день' : 'дней')
+                    : ((profile.streak || 0) === 1 ? 'day' : 'days');
+                streakLabel.textContent = t('streak') + ': ' + (profile.streak || 0) + ' ' + days;
+            }
 
-            // Правильное окончание: 1 сундук, 2 сундука, 5 сундуков
-            const tail = n % 100;
-            const word = (n % 10 === 1 && tail !== 11) ? 'сундук'
-                : (n % 10 >= 2 && n % 10 <= 4 && (tail < 12 || tail > 14)) ? 'сундука'
-                : 'сундуков';
-
-            chestInfo.textContent = n > 0
-                ? 'У тебя ' + n + ' ' + word + '. Внутри от ' + CHEST_MIN + ' до ' + CHEST_MAX + ' монет.'
-                : 'Сундук даётся за победу в матче. Открывай и получай монеты на прокачку.';
+            if (lang === 'ru') {
+                // Правильное окончание: 1 сундук, 2 сундука, 5 сундуков
+                const tail = n % 100;
+                const word = (n % 10 === 1 && tail !== 11) ? 'сундук'
+                    : (n % 10 >= 2 && n % 10 <= 4 && (tail < 12 || tail > 14)) ? 'сундука'
+                    : 'сундуков';
+                chestInfo.textContent = n > 0
+                    ? 'У тебя ' + n + ' ' + word + '. Внутри от ' + CHEST_MIN + ' до ' + CHEST_MAX + ' монет.'
+                    : 'Сундук даётся за победу в матче. Открывай и получай монеты на прокачку.';
+            } else {
+                chestInfo.textContent = n > 0
+                    ? 'You have ' + n + ' chest' + (n === 1 ? '' : 's') + '. Each gives ' + CHEST_MIN + '–' + CHEST_MAX + ' coins.'
+                    : 'Win a match to get a chest. Open it for coins to upgrade your fighter.';
+            }
         }
 
         // Переключение вкладок главного экрана: БОЙ / ПРОКАЧКА / СУНДУКИ
@@ -2344,6 +2407,8 @@
             Object.keys(tabPages).forEach(key => {
                 tabPages[key].classList.toggle('hidden', key !== name);
             });
+            const box = document.querySelector('.menu-box');
+            if (box) box.classList.toggle('compact', name !== 'play');
         }
 
         // Ряд выбора бойца на вкладке прокачки
@@ -2544,14 +2609,65 @@
             hintEl.classList.add('show');
         }
 
+        // Полный экран: сначала пробуем Telegram, потом обычный браузерный API
+        function isFullscreenOn() {
+            return !!(document.fullscreenElement || (tg && tg.isFullscreen));
+        }
+
+        async function enterFullscreen() {
+            let telegramFullscreen = false;
+            try {
+                if (tg) {
+                    const canRequest = tg.requestFullscreen && (!tg.isVersionAtLeast || tg.isVersionAtLeast('8.0'));
+                    if (canRequest) {
+                        tg.requestFullscreen();
+                        telegramFullscreen = true;
+                    } else if (tg.expand) {
+                        tg.expand();
+                    }
+                    if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+                }
+            } catch (e) {}
+
+            try {
+                const el = document.documentElement;
+                if (!document.fullscreenElement && el.requestFullscreen) {
+                    await el.requestFullscreen({ navigationUI: 'hide' });
+                }
+            } catch (e) {}
+
+            // Блокировка поворота работает только после настоящего fullscreen
+            try {
+                if ((telegramFullscreen || document.fullscreenElement) && screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                }
+            } catch (e) {}
+            updateFullscreenLabel();
+        }
+
+        async function toggleFullscreen() {
+            if (isFullscreenOn()) {
+                try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
+                try { if (tg && tg.exitFullscreen) tg.exitFullscreen(); } catch (e) {}
+            } else {
+                await enterFullscreen();
+            }
+            updateFullscreenLabel();
+        }
+
+        function updateFullscreenLabel() {
+            const btn = document.getElementById('settingsFsBtn');
+            if (!btn) return;
+            const on = isFullscreenOn();
+            btn.textContent = t(on ? 'exitFullscreen' : 'fullscreen');
+        }
+
         function startMatch() {
             document.body.classList.remove('in-menu');
             menuEl.classList.add('hidden');
             resultEl.classList.add('hidden');
             resetInputs();
-            // Пытаемся открыть полный экран и зафиксировать альбомную ориентацию
-            try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
-            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+            enterFullscreen();
             resize();
 
             const chosen = BRAWLERS.find(b => b.id === selectedBrawlerId) || BRAWLERS[0];
@@ -2709,12 +2825,11 @@
         nextBrawlerBtn.addEventListener('click', () => cycleBrawler(1));
         recordsBtn.addEventListener('click', () => { sfxClick(); const list = loadLeaderboard(); toast(list.length ? list.slice(0, 3).map((e, i) => (i + 1) + '. ' + e.name + ' — ' + e.kills).join(' · ') : 'Рекордов пока нет'); });
         dailyBtn.addEventListener('click', () => { if (!claimDaily()) toast('Бонус уже получен сегодня'); });
-        settingsFsBtn.addEventListener('click', () => {
-            sfxClick();
-            try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
-            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
-        });
-        function updateSettingsSoundLabel() { settingsSoundBtn.textContent = 'Звук: ' + (audio.enabled ? 'вкл' : 'выкл'); }
+        settingsFsBtn.addEventListener('click', () => { sfxClick(); toggleFullscreen(); });
+        document.addEventListener('fullscreenchange', () => { updateFullscreenLabel(); resize(); });
+        function updateSettingsSoundLabel() {
+            settingsSoundBtn.textContent = t('sound') + ': ' + (audio.enabled ? (lang === 'ru' ? 'вкл' : 'on') : (lang === 'ru' ? 'выкл' : 'off'));
+        }
         updateSettingsSoundLabel();
 
         applyLang();
