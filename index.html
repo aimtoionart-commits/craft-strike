@@ -274,6 +274,7 @@
             <div id="cards"></div>
             <button class="btn" id="playBtn" type="button">ИГРАТЬ</button>
             <div class="wins" id="winsLabel">Побед: 0</div>
+            <div class="wins" id="streakLabel">Серия входов: 0 дней</div>
         </div>
 
         <div class="tab-page hidden" id="page-upgrade">
@@ -608,7 +609,7 @@
 
         function defaultProfile() {
             // 150 монет на старт — чтобы сразу можно было попробовать прокачку
-            return { coins: 150, chests: 0, levels: { scout: 0, tank: 0, sniper: 0 } };
+            return { coins: 150, chests: 0, levels: { scout: 0, tank: 0, sniper: 0 }, lastDaily: null, streak: 0 };
         }
 
         // Читаем профиль аккуратно: битые или старые данные не должны ломать игру
@@ -625,7 +626,9 @@
                 return {
                     coins: Math.max(0, p.coins | 0),
                     chests: Math.max(0, p.chests | 0),
-                    levels: levels
+                    levels: levels,
+                    lastDaily: (typeof p.lastDaily === 'string') ? p.lastDaily : null,
+                    streak: Math.max(0, p.streak | 0)
                 };
             } catch (e) {
                 return defaultProfile();
@@ -1984,6 +1987,7 @@
         const resultEl = document.getElementById('result');
         const cardsEl = document.getElementById('cards');
         const winsLabel = document.getElementById('winsLabel');
+        const streakLabel = document.getElementById('streakLabel');
         const resultTitle = document.getElementById('resultTitle');
         const resultScore = document.getElementById('resultScore');
         const resultSub = document.getElementById('resultSub');
@@ -2062,6 +2066,7 @@
 
             chestBtn.textContent = n > 0 ? 'ОТКРЫТЬ СУНДУК (' + n + ')' : 'СУНДУКОВ НЕТ';
             chestBtn.classList.toggle('ghost', n === 0);
+            if (streakLabel) streakLabel.textContent = 'Серия входов: ' + (profile.streak || 0) + ' ' + (profile.streak === 1 ? 'день' : 'дней');
 
             // Правильное окончание: 1 сундук, 2 сундука, 5 сундуков
             const tail = n % 100;
@@ -2187,6 +2192,25 @@
             sfxChest();
             haptic('success');
             toast('Из сундука: +' + coins + ' 🪙');
+        }
+
+        function claimDaily() {
+            const today = new Date().toISOString().slice(0, 10);
+            if (profile.lastDaily === today) return false;
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            profile.streak = (profile.lastDaily === yesterday) ? (profile.streak || 0) + 1 : 1;
+            profile.lastDaily = today;
+            const reward = 20 + Math.min(profile.streak, 7) * 5;
+            profile.coins += reward;
+            let chestGiven = false;
+            if (profile.streak % 3 === 0) { profile.chests += 1; chestGiven = true; }
+            saveProfile();
+            updateWallet();
+            renderUpgradePanel();
+            sfxClick();
+            haptic('success');
+            toast('Ежедневный бонус: +' + reward + ' 🪙' + (chestGiven ? ' и сундук!' : ''));
+            return true;
         }
 
         function renderCards() {
@@ -2362,6 +2386,7 @@
             updateWallet();
             renderUpgradePanel();
             setTab('play');
+            claimDaily();
 
             lastHud = { blue: -1, red: -1, time: '', superP: -1, superReady: null };
             updateHud();
