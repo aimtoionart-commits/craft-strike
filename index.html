@@ -341,6 +341,7 @@
             <div class="modal-title">Настройки</div>
             <button class="btn ghost" id="settingsSoundBtn" type="button">Звук: вкл</button>
             <button class="btn ghost" id="settingsLangBtn" type="button">Язык: Русский</button>
+            <button class="btn ghost" id="settingsFsBtn" type="button">Полный экран</button>
             <div class="subtitle">Громкость и вибрация. Прогресс и монеты хранятся на этом устройстве.</div>
             <button class="btn ghost" id="settingsCloseBtn" type="button">Закрыть</button>
         </div>
@@ -2134,6 +2135,7 @@
         const settingsModal = document.getElementById('settingsModal');
         const settingsSoundBtn = document.getElementById('settingsSoundBtn');
         const settingsLangBtn = document.getElementById('settingsLangBtn');
+        const settingsFsBtn = document.getElementById('settingsFsBtn');
         const settingsCloseBtn = document.getElementById('settingsCloseBtn');
         const resultTitle = document.getElementById('resultTitle');
         const resultScore = document.getElementById('resultScore');
@@ -2438,6 +2440,9 @@
             menuEl.classList.add('hidden');
             resultEl.classList.add('hidden');
             resetInputs();
+            // Пытаемся открыть полный экран и зафиксировать альбомную ориентацию
+            try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
             resize();
 
             const chosen = BRAWLERS.find(b => b.id === selectedBrawlerId) || BRAWLERS[0];
@@ -2581,6 +2586,11 @@
         settingsCloseBtn.addEventListener('click', () => { sfxClick(); settingsModal.classList.add('hidden'); });
         settingsSoundBtn.addEventListener('click', () => { setSoundEnabled(!audio.enabled); applyLang(); if (audio.enabled) sfxClick(); });
         settingsLangBtn.addEventListener('click', () => { sfxClick(); setLang(lang === 'ru' ? 'en' : 'ru'); });
+        settingsFsBtn.addEventListener('click', () => {
+            sfxClick();
+            try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch (e) {}
+            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+        });
         function updateSettingsSoundLabel() { settingsSoundBtn.textContent = 'Звук: ' + (audio.enabled ? 'вкл' : 'выкл'); }
         updateSettingsSoundLabel();
 
