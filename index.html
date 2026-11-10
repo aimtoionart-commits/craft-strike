@@ -690,6 +690,49 @@
             if (typeof refreshHeroPreview === 'function') refreshHeroPreview();
         }
 
+        // Большой герой в лобби: блочный персонаж в духе Minecraft
+        function drawLobbyHero(c, b, lvl, now) {
+            const w = c.canvas.width, h = c.canvas.height;
+            const bob = Math.sin(now / 650) * 3;
+            c.save();
+            c.translate(w / 2, h / 2 + 6 + bob);
+            c.scale(2.05, 2.05);
+
+            // тень
+            c.fillStyle = 'rgba(0,0,0,0.28)';
+            c.beginPath(); c.ellipse(0, 62, 38, 10, 0, 0, Math.PI * 2); c.fill();
+
+            // ноги и ботинки
+            c.fillStyle = b.colorDark; c.fillRect(-20, 20, 16, 42); c.fillRect(4, 20, 16, 42);
+            c.fillStyle = '#2b2b33'; c.fillRect(-21, 54, 18, 10); c.fillRect(3, 54, 18, 10);
+
+            // тело и жилет
+            c.fillStyle = b.color; c.fillRect(-26, -14, 52, 44);
+            c.fillStyle = 'rgba(0,0,0,0.24)'; c.fillRect(-26, -14, 10, 44); c.fillRect(16, -14, 10, 44);
+            c.fillStyle = '#5a3a22'; c.fillRect(-26, 20, 52, 8);
+            c.fillStyle = '#d9b45b'; c.fillRect(-6, 20, 12, 8);
+
+            // руки и кисти
+            c.fillStyle = b.color; c.fillRect(-42, -10, 14, 36); c.fillRect(28, -10, 14, 36);
+            c.fillStyle = '#e0b48a'; c.fillRect(-42, 24, 14, 8); c.fillRect(28, 24, 14, 8);
+
+            // оружие
+            c.fillStyle = '#22242b'; c.fillRect(-49, 8, 11, 28); c.fillRect(38, 8, 11, 28);
+            c.fillStyle = '#5a6070'; c.fillRect(-52, 12, 7, 9); c.fillRect(45, 12, 7, 9);
+
+            // голова
+            c.fillStyle = '#e8b98f'; c.fillRect(-22, -52, 44, 40);
+            c.fillStyle = b.colorLight || b.color; c.fillRect(-24, -58, 48, 16);
+            c.fillRect(-24, -58, 8, 32); c.fillRect(16, -58, 8, 32);
+
+            // глаза и рот
+            c.fillStyle = '#fff'; c.fillRect(-14, -38, 10, 8); c.fillRect(4, -38, 10, 8);
+            c.fillStyle = '#222'; c.fillRect(-10, -36, 5, 5); c.fillRect(8, -36, 5, 5);
+            c.fillStyle = '#a5524a'; c.fillRect(-6, -24, 12, 3);
+
+            c.restore();
+        }
+
         function refreshHeroPreview() {
             const b = BRAWLERS.find(x => x.id === selectedBrawlerId) || BRAWLERS[0];
             heroPreviewFighter = makeFighter('blue', b, 0, 0, false, levelOf(b.id));
@@ -1674,17 +1717,8 @@
                 bg.addColorStop(1, 'rgba(8, 12, 20, 0)');
                 hctx.fillStyle = bg;
                 hctx.fillRect(0, 0, w, h);
-                heroPreviewFighter.walkPhase += dt * 3;
-                const prevCtx = ctx;
-                ctx = hctx;
-                hctx.save();
-                hctx.translate(w / 2, h / 2 + 10);
-                hctx.scale(2.1, 2.1);
-                heroPreviewFighter.x = 0;
-                heroPreviewFighter.y = 0;
-                drawFighter(heroPreviewFighter);
-                hctx.restore();
-                ctx = prevCtx;
+                const b = BRAWLERS.find(x => x.id === selectedBrawlerId) || BRAWLERS[0];
+                drawLobbyHero(hctx, b, levelOf(b.id), game.now);
             }
             requestAnimationFrame(frame);
         }
